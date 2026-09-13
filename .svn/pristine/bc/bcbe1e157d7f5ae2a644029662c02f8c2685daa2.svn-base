@@ -1,8 +1,0 @@
-INSERT INTO `config` (`id`, `name`, `value`, `types`, `update`) VALUES (54, 'criticonu64', '2', 'int', '2023-06-29 10:19:45');
-INSERT INTO `config` (`id`, `name`, `value`, `types`, `update`) VALUES (55, 'criticonu128', '2', 'int', '2023-06-29 10:19:45');
-
-INSERT INTO `config` (`id`, `name`, `value`, `types`, `update`) VALUES
-('56','messageid', NULL, 'telegram', '2022-07-27 16:08:49'),
-('57','userid', NULL, 'telegram', '2022-07-27 16:08:49'),
-('58','typestelegram', 'chat', 'telegram', '2023-06-29 10:19:45');
-

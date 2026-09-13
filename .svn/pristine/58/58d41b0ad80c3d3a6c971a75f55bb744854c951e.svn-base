@@ -1,5 +1,0 @@
-CREATE INDEX idx_onu ON historysignal (onu);
-CREATE INDEX idx_onusdata_onukey ON onusdata (onukey);
-CREATE INDEX idx_onus_mac ON onus (mac);
-CREATE INDEX idx_onus_sn ON onus (sn);
-CREATE INDEX idx_idonu ON onus_log (idonu);

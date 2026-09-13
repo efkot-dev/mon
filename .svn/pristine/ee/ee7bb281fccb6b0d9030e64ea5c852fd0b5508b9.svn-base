@@ -1,5 +1,0 @@
-ALTER TABLE mon_ping3 ADD monitor ENUM('yes', 'no') DEFAULT 'no';
-ALTER TABLE apikey ADD `userid` int(11) DEFAULT NULL;
-
-ALTER TABLE fibers ADD `unitid` int(11) DEFAULT NULL;
-ALTER TABLE fibers ADD `types` int(11) DEFAULT NULL;

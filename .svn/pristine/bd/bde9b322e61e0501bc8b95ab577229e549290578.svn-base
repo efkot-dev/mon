@@ -1,3 +1,0 @@
-INSERT INTO `rules` (types,descr) VALUES ('addblacklist','rules_addblacklist_cdata');
-INSERT INTO `rules` (types,descr) VALUES ('delblacklist','rules_dellblacklist_cdata');
-INSERT INTO `rules` (types,descr) VALUES ('blacklist','rules_blacklist_cdata');

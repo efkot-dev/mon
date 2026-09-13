@@ -1,4 +1,0 @@
-CREATE TABLE `ipaddress` (  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,  `blockid` int(11) DEFAULT NULL,  `idgroups` int(11) DEFAULT NULL,  `status` text,  `ip` text,  `name` text,  `note` text,  `vlan` text,  `added` datetime DEFAULT NULL,  PRIMARY KEY (`id`)) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-CREATE TABLE `ipblock` (  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,  `ipblock` text,  `vlans` text,  `name` text,  `note` text,  `added` datetime DEFAULT NULL,  PRIMARY KEY (`id`)) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-CREATE TABLE `ipgroups` ( `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,  `name` text,  `note` text,  `color` text,  `added` datetime DEFAULT NULL,  PRIMARY KEY (`id`)) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-CREATE TABLE `ipvlans` (  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,  `name` text,  `vlan` text,  `added` datetime DEFAULT NULL,  PRIMARY KEY (`id`)) ENGINE=MyISAM DEFAULT CHARSET=utf8;
