@@ -1,0 +1,113 @@
+<?php
+if (!defined('PONMONITOR')){
+	die('Hacking attempt!');
+}
+$timer = date('Y-m-d H:i:s');
+require ROOT_DIR.'/inc/init.monitor.php';
+if (isset($confPMon['FIBERMAP']) && !empty($confPMon['FIBERMAP']) && $confPMon['FIBERMAP'] == 1) {
+$data_pon = [];
+$frog_onus = [];
+$status_onus = [];
+$pontree = array();
+$sql_frog_onu = $db->SimpleWhile('SELECT id, onukey, pontree, ponelement FROM `onusdata` WHERE  ponelement!="0"');
+if(isset($sql_frog_onu) && count($sql_frog_onu) > 0) {
+    foreach ($sql_frog_onu as $ont_frog) {
+        $frog_onus[$ont_frog['id']] = array('onukey' => $ont_frog['onukey'], 'pontree' => $ont_frog['pontree'], 'ponelement' => $ont_frog['ponelement']);
+    }
+}
+$onu_online = array();
+$onu_offline = array();
+$onu_device = array();
+$onu_none = array();
+if(isset($frog_onus) && $frog_onus > 0) {
+    foreach ($frog_onus as $ont_get) {
+        $sql_get_onu = $db->Simple('SELECT status, idonu, mac, sn, olt FROM `onus` WHERE  mac ="' . $ont_get['onukey'] . '" OR sn ="' . $ont_get['onukey'] . '" LIMIT 1');
+		if(isset($sql_get_onu['idonu']) && isset($sql_get_onu['status'])){
+			$status_onus[$ont_get['ponelement']][$sql_get_onu['idonu']] = $sql_get_onu['status'];
+            if (!isset($onu_online[$ont_get['pontree']])) {
+                $onu_online[$ont_get['pontree']] = 0;
+            }
+            if (!isset($onu_offline[$ont_get['pontree']])) {
+                $onu_offline[$ont_get['pontree']] = 0;
+            }            
+			if (!isset($onu_none[$ont_get['pontree']])) {
+                $onu_none[$ont_get['pontree']] = 0;
+            }
+			$onu_device[$ont_get['pontree']]['olt'] = $sql_get_onu['olt'];
+            if ($sql_get_onu['status'] == 1) {
+                $onu_online[$ont_get['pontree']]++;
+            } elseif ($sql_get_onu['status'] == 2) {
+                $onu_offline[$ont_get['pontree']]++;
+            }else{
+				$onu_none[$ont_get['pontree']]++;
+			}
+		}
+    }
+}
+$sql = '';
+if (isset($onu_none) && count($onu_none) > 0) {
+    $ids = [];
+    foreach ($onu_none as $pon_tree => $pon_tree_data) {
+        $ids[] = intval($pon_tree);
+    }    
+    if (!empty($ids)) {
+        $id_list = implode(',', $ids);
+        $query = "UPDATE ponelement SET status = '1', perevirka = '".$timer."' WHERE id IN ($id_list)";
+        $db->query($query);
+    }
+}
+if (isset($onu_device) && count($onu_device) > 0) {
+    foreach ($onu_device as $pon_tree => $dev_get) {
+        $olt = '';
+        foreach ($dev_get as $value) {
+            $olt .= $value . ',';
+        }
+        $db->query("UPDATE pontree SET device = '".rtrim($olt, ',')."' WHERE id = $pon_tree");
+    }
+}
+if (isset($frog_onus) && count($frog_onus) > 0) {
+    foreach ($frog_onus as $ont_get) {
+		if (isset($ont_get['pontree']) && is_numeric($ont_get['pontree']) && $ont_get['pontree'] > 0) {
+			$ont_get_pontree = $ont_get['pontree'];			
+			// Перевірка наявності ключів у $pontree[$ont_get_pontree]
+			if (!isset($pontree[$ont_get_pontree])) {
+				$pontree[$ont_get_pontree] = array();
+			}
+			$pontree[$ont_get_pontree]['online'] = (isset($onu_online[$ont_get_pontree]) ? $onu_online[$ont_get_pontree] : 0);
+			$pontree[$ont_get_pontree]['offline'] = (isset($onu_offline[$ont_get_pontree]) ? $onu_offline[$ont_get_pontree] : 0);
+
+			$db->query("UPDATE pontree SET 
+				onu = '" . intval($pontree[$ont_get_pontree]['online'] + $pontree[$ont_get_pontree]['offline']) . "', 
+				onu_online = '" . $pontree[$ont_get_pontree]['online'] . "', 
+				onu_offline = '" . $pontree[$ont_get_pontree]['offline'] . "' 
+				WHERE id = '" . $ont_get_pontree . "'");
+		}
+	}	
+}
+if(isset($status_onus) && $status_onus > 0) {
+    foreach ($status_onus as $ponelement => $onus_statuses) {
+        $ponelement_status = 2;
+        foreach ($onus_statuses as $status) {
+            if ($status == 1) {
+                $ponelement_status = 1; 
+                break;
+            }
+        }
+        $data_pon[] = array('status' => $ponelement_status, 'id' => $ponelement);
+    }
+}
+if (isset($data_pon) && count($data_pon) > 0) {
+	foreach ($data_pon as $pon_element => $value) {	
+		$db->query("UPDATE ponelement SET status = '".$value['status']."', perevirka = '".$timer."'  WHERE id = '".$value['id']."'");
+	}
+}
+/*
+if (isset($frog_onus) && count($data_pon) > 0) {
+    foreach ($frog_onus as $ont_get) {
+        $pontree[$ont_get['pontree']]['online'] = $onu_online[$ont_get['pontree']];
+        $pontree[$ont_get['pontree']]['offline'] = $onu_offline[$ont_get['pontree']];
+    }	
+}
+*/
+}
+?>

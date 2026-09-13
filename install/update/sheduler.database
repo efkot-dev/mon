@@ -1,0 +1,37 @@
+CREATE TABLE template_groups (
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	name VARCHAR(255) NOT NULL
+);
+CREATE TABLE templates (
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	name VARCHAR(255) NOT NULL,
+	description TEXT,
+	group_id INT DEFAULT NULL,
+	run_type ENUM('manual', 'auto', 'onu_event') DEFAULT 'manual',
+	schedule_time TIME DEFAULT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (group_id) REFERENCES template_groups(id)
+);
+INSERT INTO template_groups (id,name) VALUES (1,'Default PMon');
+CREATE TABLE template_commands (
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	template_id INT NOT NULL,
+	command TEXT NOT NULL,
+	sort_order INT DEFAULT 0,
+	FOREIGN KEY (template_id) REFERENCES templates(id)
+);
+CREATE TABLE template_devices (
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	template_id INT NOT NULL,
+	device_id INT NOT NULL,
+	FOREIGN KEY (template_id) REFERENCES templates(id)
+);
+CREATE TABLE `template_variables` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `template_id` INT NOT NULL,
+    `name` VARCHAR(100) NOT NULL,
+    `type` ENUM('text', 'number', 'enum') NOT NULL DEFAULT 'text',
+    `description` TEXT DEFAULT NULL,
+    `enum_values` TEXT DEFAULT NULL,
+    FOREIGN KEY (`template_id`) REFERENCES `templates`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

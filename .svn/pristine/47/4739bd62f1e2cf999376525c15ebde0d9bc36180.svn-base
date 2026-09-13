@@ -1,0 +1,3 @@
+ALTER TABLE `switch_port` ADD `signal` ENUM('yes', 'no') COLLATE 'utf8_general_ci' NOT NULL DEFAULT 'no' AFTER `error`;
+ALTER TABLE `sgnal_sfp` RENAME TO `signal_sfp`;
+ALTER TABLE `signal_sfp` CHANGE `signal` `rx` varchar(16) COLLATE 'utf8_general_ci' NULL AFTER `sfpid`, ADD `tx` varchar(16) COLLATE 'utf8_general_ci' NULL AFTER `rx`;

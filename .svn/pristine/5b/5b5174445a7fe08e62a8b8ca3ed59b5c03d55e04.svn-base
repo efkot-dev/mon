@@ -1,0 +1,20 @@
+2023-01-03T23:29:19+00:00 Switch %LINE-5-UPDOWN: Line on Interface EPON0/1, changed state to up 
+2023-01-03T23:29:19+00:00 Switch %LINEPROTO-5-UPDOWN: Line protocol on Interface EPON0/1, changed state to up 
+2023-01-03T23:29:19+00:00 Switch %EPON-ONUREG: ONU e067.b33f.bb0f is registered on EPON0/1:1. 
+2023-01-03T23:29:19+00:00 Switch %EPON-ONUAUTHEN: ONU e067.b33f.bb0f is authenticated on EPON0/1:1. 
+2023-01-03T23:29:20+00:00 Switch %OLT: Interface EPON0/1:1's OAM Operational Status: Operational 
+2023-01-03T23:29:22+00:00 Switch %OLT: Interface EPON0/1:1's CTC OAM extension negotiated successfully! 
+2023-01-04T00:08:15+00:00 Switch %OLT: Interface EPON0/1:1's OAM Operational Status: Linkfault 
+2023-01-04T00:08:15+00:00 Switch %LINE-5-UPDOWN: Line on Interface EPON0/1, changed state to down 
+2023-01-04T00:08:15+00:00 Switch %LINEPROTO-5-UPDOWN: Line protocol on Interface EPON0/1, changed state to down 
+2023-01-04T00:08:15+00:00 Switch HAL: get onu optical transceiver diagnosis failed: rc = 3 
+2023-01-04T00:08:15+00:00 Switch HAL: get onu optical transceiver diagnosis failed: rc = 5 
+2023-01-04T00:08:15+00:00 Switch HAL: get onu optical transceiver diagnosis failed: rc = 5 
+2023-01-04T00:08:15+00:00 Switch HAL: get onu optical transceiver diagnosis failed: rc = 5 
+2023-01-04T00:08:15+00:00 Switch %EPON-ONUDEREG: ONU e067.b33f.bb0f is deregistered on EPON0/1:1. 
+2023-01-04T00:08:46+00:00 Switch %LINE-5-UPDOWN: Line on Interface EPON0/1, changed state to up 
+2023-01-04T00:08:46+00:00 Switch %LINEPROTO-5-UPDOWN: Line protocol on Interface EPON0/1, changed state to up 
+2023-01-04T00:08:46+00:00 Switch %EPON-ONUREG: ONU e067.b33f.bb0f is registered on EPON0/1:1. 
+2023-01-04T00:08:46+00:00 Switch %EPON-ONUAUTHEN: ONU e067.b33f.bb0f is authenticated on EPON0/1:1. 
+2023-01-04T00:08:47+00:00 Switch %OLT: Interface EPON0/1:1's OAM Operational Status: Operational 
+2023-01-04T00:08:49+00:00 Switch %OLT: Interface EPON0/1:1's CTC OAM extension negotiated successfully! 

@@ -1,0 +1,57 @@
+<?php
+if(!defined('PONMONITOR')){
+	die('Hacking attempt system!');
+}
+if(!defined('CONFIG')){
+	die('Hacking attempt config!');
+}
+$classOLT = [
+'fd1700s' => CDATA_FD1700s::class,
+'fd1700sv3' => CDATA_FD1700sv3::class,
+'smartfiberepon' => SmartFiber_Epon::class,
+'smartfibergpon' => SmartFiber_Gpon::class,
+'gcomeponel5610' => GCOM5610_Epon::class,
+'huawei5608t' => HUAWEI_5608t::class,
+'huawei5608tr15' => HUAWEI_5608R015::class,
+'nokiaisam7300' => NOKIA_ISAM_7300::class,
+'zte300_1' => ZTE_c300_1::class,
+'zte320_1' => ZTE_c320_1::class,
+'zte320_2' => ZTE_c320_2::class,
+'zte220_2' => ZTE_c220_2::class,
+'zte300_2' => ZTE_c300_2::class,
+'zte620_1' => ZTE_c600_1::class,
+'bdcomepon' => BDCOM_Epon::class,
+'huawei2326switch' => Huawei2326TP::class,
+'dlinkdgs1106' => DlinkDGS1106ME::class,
+'dlinkdgs3420' => DlinkDGS3420::class,
+'bdcomgpon' => BDCOM_Gpon::class,
+'cdataf1616sn' => CDATA_1616sn::class,
+'cdatafd1608' => CDATA_1608sn::class,
+'cdata1208sr2dap' => CDATA_1208sr2dap::class,
+'cdata1204' => CDATA_1204::class,
+'cdataf1216s' => CDATA_1216s::class,
+'cdata1108' => CDATA_1108::class,
+'planet2424' => Planet2424::class,
+'mkt2011rm' => Mikrotik2011RM::class,
+'eltexmes5316a' => EltexMes5316a::class,
+'zte600_1' => ZTE_c600_1::class,
+'vsolv16' => Vsolv16_Gpon::class,
+'vsolv16e' => Vsolv16_Epon::class,
+'vsolv16d' => Vsolv16_Epon_1::class,
+'vsolv16d_1' => Vsolv16_Epon_1::class,
+'gcoms610016x' => GCOMs6100_16x::class,
+'cisconx3000' => CiscoNX3000::class,
+'crs300' => MikrotikCRS300::class,
+'hiosoha7302' => HiosoHA7302::class,
+'edgecore28f' => Edge_Core_28f::class,
+'raisecom2600g' => Rasisecom2600g::class,
+'dsnS460052p' => DSNS460052p::class,
+'dellx4012' => DellX4012::class,
+'cdata1616v3' => CDATA_1616V3::class,
+'gcomgpon5610' => GCOM_Gpon::class,
+'mikrotik_ccr' => Mikrotik_CCR::class,
+'junipermx140' => JuniperMX140::class,
+'s72033_rp' => Cisco_Catalyst_6500::class,
+'bdcoms2928f' => BDCOM_S2928F::class,
+];
+?>

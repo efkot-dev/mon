@@ -1,0 +1,151 @@
+CREATE TABLE `task_list_worker` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `task_money` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `money` int(11) DEFAULT NULL,
+  `updates` datetime DEFAULT NULL,  
+  `added` datetime DEFAULT NULL,  
+  `status` int(11) DEFAULT NULL,
+  `userid` int(11) DEFAULT NULL,
+  `taskid` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `task_list` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `story` text DEFAULT NULL,
+  `clientid` int(11) DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `locationname` int(11) DEFAULT NULL,
+  `typesworker` int(11) DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `vikonavci` int(11) DEFAULT NULL,
+  `devicetype` int(11) DEFAULT NULL,
+  `deviceid` int(11) DEFAULT NULL,
+  `autor` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,  
+  `finishday` datetime DEFAULT NULL,  
+  `updatesday` datetime DEFAULT NULL,  
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+ALTER TABLE task_list ADD payment_type INT(11) NULL DEFAULT NULL AFTER finishday;
+ALTER TABLE task_list ADD  money text DEFAULT NULL AFTER finishday;
+ALTER TABLE task_list ADD dogovir INT(11) NULL DEFAULT NULL AFTER finishday;
+ALTER TABLE task_list ADD closeday datetime DEFAULT NULL AFTER finishday;
+
+
+CREATE TABLE `task_list_client` (
+  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `status` int(11) DEFAULT NULL,
+  `client_locationid` int(11) DEFAULT NULL,
+  `client_locationname` text,
+  `client_mobil` text, 
+  `client_pib` text, 
+  `client_street` text, 
+  `client_house` text, 
+  `updates` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  `ratio` int(11) DEFAULT NULL,  
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `task_list_comment` (
+  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `taskid` int(11) DEFAULT NULL,
+  `comment` text,
+  `autorid` int(11) DEFAULT NULL,
+  `updates` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `task_list_vikonavci` (
+  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `taskid` int(11) DEFAULT NULL,
+  `username` text,
+  `userid` int(11) DEFAULT NULL,
+  `userclass` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+ALTER TABLE task_money ADD payment_type INT(11) NULL DEFAULT NULL AFTER userid;
+ALTER TABLE task_money ADD  money text DEFAULT NULL AFTER userid;
+ALTER TABLE task_money ADD dogovir INT(11) NULL DEFAULT NULL AFTER userid;
+
+
+CREATE TABLE `task_photo` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `photo` text DEFAULT NULL,
+  `device` text,
+  `userid` int(11) DEFAULT NULL,
+  `taskid` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+
+ALTER TABLE location_street ADD billing_streetid INT(11) NULL DEFAULT NULL AFTER locationname;
+ALTER TABLE location_street ADD billing_buildcount INT(11) NULL DEFAULT NULL AFTER billing_streetid;
+ALTER TABLE location_street ADD billing_districtid INT(11) NULL DEFAULT NULL AFTER billing_buildcount;
+ALTER TABLE location_street ADD billing_type INT(11) NULL DEFAULT NULL AFTER billing_districtid;
+
+CREATE TABLE `location_build` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `streetid` int(11) DEFAULT NULL,
+  `billing_buildid` int(11) DEFAULT NULL,
+  `billing_districtsid` int(11) DEFAULT NULL,
+  `billing_streetid` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8_general_ci;
+
+
+ALTER TABLE `task_list`
+CHANGE `clientid` `priority` int(11) NULL AFTER `story`,
+CHANGE `status` `status` int(11) NULL AFTER `priority`,
+CHANGE `locationid` `locationid` int(11) NULL AFTER `status`,
+CHANGE `locationname` `locationname` int(11) NULL AFTER `locationid`,
+CHANGE `typesworker` `typesworker` int(11) NULL AFTER `locationname`,
+DROP `devicetype`,
+DROP `deviceid`,
+CHANGE `autor` `operator` int(11) NULL AFTER `vikonavci`,
+CHANGE `added` `created_at` datetime NULL AFTER `operator`,
+CHANGE `finishday` `planned_at` datetime NULL AFTER `created_at`,
+ADD `do_before_at` datetime NULL AFTER `planned_at`,
+DROP `closeday`,
+DROP `dogovir`,
+DROP `money`,
+CHANGE `updatesday` `updated_at` datetime NULL AFTER `payment_type`;
+
+ALTER TABLE `task_list`
+ADD `finish_at` datetime NULL;
+
+ALTER TABLE `task_list_worker`
+ADD `color` text(30) COLLATE 'utf8_general_ci' NULL AFTER `name`;
+
+ALTER TABLE `task_list`
+ADD `clientid` int(11) NULL AFTER `locationid`;
+
+ALTER TABLE `task_list_vikonavci`
+ADD `name` text COLLATE 'utf8_general_ci' NULL AFTER `username`;
+
+ALTER TABLE `task_list`
+ADD `money` varchar(30) NULL AFTER `payment_type`;
+
+ALTER TABLE `task_list`
+ADD `dogovir` int(11) NULL AFTER `operator`;
+
+

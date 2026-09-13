@@ -1,0 +1,12 @@
+CREATE TABLE `ponmap_photo` (
+  `id` int(11) NOT NULL,
+  `ponid` int(11) NOT NULL DEFAULT '0',
+  `name` varchar(300) DEFAULT NULL,
+  `note` varchar(500) DEFAULT NULL,
+  `photo` varchar(300) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  `userid` int(11) DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+ALTER TABLE `ponmap_photo`  ADD PRIMARY KEY (`id`);
+ALTER TABLE `ponmap_photo`  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;

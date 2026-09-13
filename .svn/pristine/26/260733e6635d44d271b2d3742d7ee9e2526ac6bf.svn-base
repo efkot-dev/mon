@@ -1,0 +1,71 @@
+<?php
+/*
+=====================================================
+ Copyright (c) 2024 PMon
+=====================================================
+ 1. notifications about offline ONTs
+ 2. notifications about Loss ONTs
+=====================================================
+*/
+if (!defined('PONMONITOR')){
+	die('Hacking attempt!');
+}
+require ROOT_DIR.'/inc/init.monitor.php';
+require ROOT_DIR.'/inc/functions/pmon.php';
+$timer = date('Y-m-d H:i:s');
+if (isset($confPMon['ONU_OFF']) && !empty($confPMon['ONU_OFF']) && $confPMon['ONU_OFF'] == 1) {
+$sqlcountonu = $db->Simple("SELECT count(idonu) as off_onu FROM onus WHERE offline >= CURDATE() AND status = '2'");
+$sqlcountonus = $db->Simple("SELECT count(idonu) as active_onu FROM onus WHERE status = '1'");
+if(isset($sqlcountonus['active_onu']) && isset($sqlcountonu['off_onu'])){
+	$currentDataRow = $db->Simple("SELECT * FROM tempdate WHERE file = 'poweroffonu' LIMIT 1");
+	$currentData = $currentDataRow ? (int)$currentDataRow['data'] : 0;
+	if ($currentData != $sqlcountonu['off_onu']) {
+		$difference = abs($currentData - $sqlcountonu['off_onu']);  
+		$difference_default = (isset($confPMon['CRITICAL_CHANGE_OFFLINE_ALL']) && !empty($confPMon['CRITICAL_CHANGE_OFFLINE_ALL']) ? $confPMon['CRITICAL_CHANGE_OFFLINE_ALL'] : 100);
+		if ($difference > $difference_default) {
+			$sender = '[icon-right][b]' . $lang['offef'] . ' ONU[/b] ' . $lang['count_last'] . ': ' . $currentData . ' ' . $lang['count_curent'] . ': ' . $sqlcountonu['off_onu'] . ' ' . $lang['count_curent_on'] . ': ' . $sqlcountonus['active_onu'];
+			$db->SQLinsert('notification', ['status' => 1,'type' => 27,'system' => 'monitor','message' => $sender,'added' => $timer]);
+		}
+		$db->query("INSERT INTO tempdate (file, data) VALUES ('poweroffonu', '".$sqlcountonu['off_onu']."') ON DUPLICATE KEY UPDATE data = '".$sqlcountonu['off_onu']."', updated_at =  '{$timer}', last_processed =  '{$timer}'");
+	}
+}
+}
+$senderlos = '';
+$currentDataRow = $db->Simple("SELECT * FROM tempdate WHERE file = 'losonu' LIMIT 1");
+$currentlosData = $currentDataRow ? (int)$currentDataRow['data'] : 0;
+$countlos = (isset($confPMon['MONITOR_ONU_LOS_COUNT']) && !empty($confPMon['MONITOR_ONU_LOS_COUNT'])?$confPMon['MONITOR_ONU_LOS_COUNT']:5);
+$sqlloscountonu = $db->Simple("SELECT count(idonu) as los_onu FROM onus WHERE offline >= CURDATE() AND (status = '2' AND (reason = 'err8' OR reason = 'err6')) ORDER BY offline DESC");
+if(isset($sqlloscountonu) && $sqlloscountonu['los_onu']>0){
+	if ($currentlosData != $sqlloscountonu['los_onu']) {
+		$currentlosData = (int)$currentlosData;
+		$difference = abs($sqlloscountonu['los_onu'] - $currentlosData);
+		if ($difference > $countlos) {
+			if ($sqlloscountonu['los_onu'] > $currentlosData) {
+				$result = '[icon-up]';
+				$icon = 'up';
+				$result = 'збільшилась до';
+			} elseif ($sqlloscountonu['los_onu'] < $currentlosData) {
+				$result = '[icon-down]';
+				$result = 'зменшилась до';
+				$icon = 'down';
+		} else {
+				$result = '=';
+				$icon = '';
+			}
+			$senderlos = '[icon-alarm][b]ONU LOS[/b] ' . $lang['count_last'] . ': ' . $currentlosData . ' ' . $result . ' [b]' . $sqlloscountonu['los_onu'] . '[/b]';
+			$db->SQLinsert('notification', ['status' => 1, 'type' => 27, 'system' => 'monitor', 'message' => $senderlos, 'added' => $timer]);
+			$_list = 'ONU LOS ' . $lang['count_last'] . ': ' . $currentlosData . ' '.$result.' ' . $sqlloscountonu['los_onu'].'';
+			if (isset($confPMon['PMON_LOG']) && !empty($confPMon['PMON_LOG']) && $confPMon['PMON_LOG'] == 1) {
+				if($_list!=false){
+					$pmon_log = ['types' => 'onu_los_'.$icon ,'status' => 'critical' , 'message' => $_list];
+					$sql = PMon($pmon_log,$timer);
+					if($sql){
+						$db->query($sql);
+					}
+				}
+			}
+		}
+	}
+}
+$db->query("INSERT INTO tempdate (file, data) VALUES ('losonu', '".$sqlloscountonu['los_onu']."') ON DUPLICATE KEY UPDATE data = '".$sqlloscountonu['los_onu']."', updated_at =  '{$timer}', last_processed =  '{$timer}'");
+?>

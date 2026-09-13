@@ -1,0 +1,100 @@
+ALTER TABLE switch ADD pinger INT NULL DEFAULT NULL AFTER status;
+ALTER TABLE onus ADD stikers INT NULL DEFAULT NULL AFTER idonu;
+ALTER TABLE onus ADD addstikers INT NULL DEFAULT NULL AFTER idonu;
+ALTER TABLE onusdata ADD `uid` INT NULL DEFAULT NULL AFTER tag;
+ALTER TABLE onusdata ADD ponelement INT(11) NULL DEFAULT NULL AFTER uid;
+ALTER TABLE onusdata ADD pontree INT(11) NULL DEFAULT NULL AFTER uid;
+ALTER TABLE groups ADD group_types INT(11) NULL DEFAULT NULL AFTER id;
+ALTER TABLE onus ADD clockstikers DATETIME DEFAULT '1970-01-01 00:00:00';
+ALTER TABLE onus ADD rxolt DECIMAL(10,2) DEFAULT '0';
+ALTER TABLE bandwidth ADD speed_port INT(11) NULL DEFAULT NULL AFTER id;
+ALTER TABLE bandwidth MODIFY speed_port BIGINT;
+CREATE TABLE `mac_router` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `mac` text DEFAULT NULL,
+  `deviceid` int(11) DEFAULT NULL,
+  `inface` text DEFAULT NULL,
+  `vlan` text DEFAULT NULL,
+  `port` text DEFAULT NULL,
+  `onu` text DEFAULT NULL,
+  `portid` int(11) DEFAULT NULL,
+  `onuid` int(11) DEFAULT NULL,
+  `update` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+CREATE TABLE `spliters` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `ponelementname` text DEFAULT NULL,
+  `userid` int(11) DEFAULT NULL,
+  `pontreeid` int(11) DEFAULT NULL,
+  `ponelement` int(11) DEFAULT NULL,
+  `spliterid` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+CREATE TABLE `tracking_user` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `lan` text DEFAULT NULL,
+  `lon` text DEFAULT NULL,
+  `userid` int(11) DEFAULT NULL,
+  `userkey` text DEFAULT NULL,
+  `userdevice` text DEFAULT NULL,
+  `user` text DEFAULT NULL,
+  `system` text DEFAULT NULL,
+  `car` int(11) DEFAULT NULL,
+  `location` int(11) DEFAULT NULL,
+  `update` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+INSERT INTO `rules` (`types`, `descr`) VALUES
+('house_edit', 'rules_house_edit'),
+('view_notification', 'view_notification'),
+('vlan_edit', 'rules_vlan_edit'),
+('admin_olt', 'rules_admin_olt'),
+('house_view', 'rules_house_view'),
+('telegram', 'rules_telegram');
+ALTER TABLE skyscraper ADD `lan` TEXT NULL DEFAULT NULL AFTER added;
+ALTER TABLE skyscraper ADD `lon` TEXT NULL DEFAULT NULL AFTER lan;
+ALTER TABLE skyscraper ADD lastoffline INT NULL DEFAULT NULL AFTER lon;
+ALTER TABLE ponelement ADD status INT(11) NULL DEFAULT NULL AFTER types;
+ALTER TABLE ponelement ADD count INT(11) NULL DEFAULT NULL AFTER status;
+CREATE TABLE `monitor_ip` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `ip` text DEFAULT NULL,
+  `name` text DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `groups` int(11) DEFAULT NULL,
+  `location` int(11) DEFAULT NULL,
+  `lan` text DEFAULT NULL,
+  `lon` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+ALTER TABLE monitor_ip ADD monitor ENUM('yes', 'no') DEFAULT 'no';
+ALTER TABLE monitor_ip ADD updates DATETIME DEFAULT '1970-01-01 00:00:00' AFTER monitor;
+ALTER TABLE monitor_ip ADD online DATETIME DEFAULT '1970-01-01 00:00:00' AFTER updates;
+ALTER TABLE monitor_ip ADD offline DATETIME DEFAULT '1970-01-01 00:00:00' AFTER online;
+ALTER TABLE monitor_ip ADD ttl text NULL DEFAULT NULL AFTER online;
+ALTER TABLE monitor_ip ADD timer text NULL DEFAULT NULL AFTER ttl;
+CREATE TABLE `monitor_ip_log` (
+  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `ip_id` int(11) DEFAULT NULL,
+  `time` text,
+  `ttl` int(11) DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+ALTER TABLE users ADD groups INT(11) NULL DEFAULT NULL AFTER id;
+ALTER TABLE users ADD status INT(11) NULL DEFAULT NULL AFTER groups;
+ALTER TABLE kabel_volokno  ADD krapochka  INT(11) NULL DEFAULT NULL AFTER kabelidid;
+DROP TABLE pmon_poller;
+
+ALTER TABLE `switch_port` ADD `error_count` bigint(22) NULL AFTER `llid`, ADD `error_today` bigint(22) NULL AFTER `error_count`;
+ALTER TABLE `ponmap_elements` ADD `description` text NULL AFTER `name`;
+
+
+
+

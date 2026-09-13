@@ -1,0 +1,11 @@
+CREATE TABLE battery (
+id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+voltage ENUM('12', '24', '48', '72') DEFAULT '12',
+amper TEXT,
+types TEXT,
+model TEXT,
+name TEXT,
+photo TEXT,
+added DATETIME,
+services DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

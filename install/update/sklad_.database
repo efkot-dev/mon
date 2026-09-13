@@ -1,0 +1,66 @@
+SET foreign_key_checks = 0;
+DROP TABLE `tmc_catalog`, `tmc_move`, `tmc_nakladna`, `tmc_provider`, `tmc_transport`;
+
+CREATE TABLE sklad_tovar (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  category_id INT UNSIGNED NOT NULL,
+  unit VARCHAR(50) NOT NULL,
+  quantity DECIMAL(10, 2) NOT NULL,
+  description TEXT,
+  price DECIMAL(10, 2) NOT NULL,
+  date_added DATE NOT NULL,
+  inventory_number VARCHAR(50),
+  CONSTRAINT fk_category FOREIGN KEY (category_id) REFERENCES sklad_category(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+ALTER TABLE sklad_tovar ADD COLUMN status ENUM('active', 'inactive') DEFAULT 'active';
+CREATE TABLE sklad_temp (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    user_id INT NOT NULL,
+    quantity INT NOT NULL,
+    assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES sklad_tovar(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE TABLE sklad_accounting (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    user_id INT NOT NULL,
+    quantity INT NOT NULL,
+    action_type ENUM('assigned', 'returned') NOT NULL,
+    action_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES sklad_tovar(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE TABLE sales_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    user_id INT NOT NULL,
+    quantity_sold INT NOT NULL,
+    sale_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES sklad_tovar(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+ALTER TABLE `sklad_accounting`
+ADD `status` enum('enable','disable') COLLATE 'utf8mb3_general_ci' NOT NULL AFTER `action_type`;
+ALTER TABLE `sklad_tovar`
+ADD `mac` text COLLATE 'utf8mb3_general_ci' NULL AFTER `description`;
+ALTER TABLE `sklad_tovar`
+ADD `oblik` int(10) unsigned NULL AFTER `category_id`,
+CHANGE `unit` `unit` varchar(50) COLLATE 'utf8mb3_general_ci' NULL AFTER `oblik`;
+
+CREATE TABLE sklad_sub_category (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cat_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    icon VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL,
+    description TEXT
+);
+ALTER TABLE `sklad_sub_category`
+CHANGE `icon` `icon` varchar(255) COLLATE 'utf8mb3_general_ci' NULL AFTER `name`;
+ALTER TABLE `sklad_tovar`
+ADD `sub_cat_id` int(10) unsigned NOT NULL AFTER `category_id`,
+ADD `price_pdv` decimal(10,2) NOT NULL AFTER `price`;

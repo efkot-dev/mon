@@ -1,0 +1,280 @@
+﻿.porterror-app {
+  margin: 0;
+}
+
+.porterror-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.porterror-col-switch {
+  width: 340px;
+  min-width: 280px;
+}
+
+.porterror-col-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.porterror-search-card {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.porterror-input {
+  width: 100%;
+  border: 1px solid #d7dfe8;
+  border-radius: 8px;
+  color: #22313f;
+  background: #fff;
+  outline: none;
+}
+
+.porterror-input:focus {
+  border-color: #2f80ed;
+  box-shadow: 0 0 0 2px rgba(47, 128, 237, 0.12);
+}
+
+.porterror-input-switch {
+  flex: 1;
+  padding: 8px;
+}
+
+.porterror-input-port {
+  min-width: 220px;
+  max-width: 280px;
+  padding: 7px 8px;
+}
+
+.porterror-switch-list {
+  margin-top: 8px;
+  max-height: 75vh;
+  overflow: auto;
+  padding: 6px;
+}
+
+.porterror-msg,
+.porterror-msg-error {
+  padding: 10px;
+  font-size: 13px;
+}
+
+.porterror-msg-error {
+  color: #b3261e;
+}
+
+.mmain #switchList .sw-card {
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid #e6ebf0;
+  border-radius: 10px;
+  margin: 6px 0;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.sw-card:hover {
+  border-color: #bdd5f7;
+  box-shadow: 0 3px 10px rgba(31, 45, 58, 0.06);
+}
+
+.mmain #switchList button{
+  background: #fff;	
+}
+.mmain #switchList .sw-card-active {
+  border-color: #2f80ed;
+  background: #eef5ff;
+}
+
+.sw-title {
+  font-weight: 700;
+  color: #22313f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sw-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #607d8b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sw-metrics {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #37474f;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sw-err {
+  color: #b3261e;
+}
+
+.porterror-toolbar {
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.porterror-switch-title {
+  font-size: 15px;
+}
+
+.porterror-ranges {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-range {
+  border: 1px solid #d8e1eb;
+  background: #fff;
+  color: #22313f;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.btn-range:hover {
+  border-color: #2f80ed;
+}
+
+.btn-range.btn-active {
+  background: #2f80ed;
+  color: #fff;
+  border-color: #2f80ed;
+}
+
+.porterror-hint {
+  margin-top: 8px;
+  padding: 10px 12px;
+  color: #607d8b;
+}
+
+.porterror-hint.is-hidden {
+  display: none;
+}
+
+.porterror-hint.is-error {
+  color: #b3261e;
+}
+
+.porterror-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 10px;
+}
+
+.porterror-card {
+  padding: 10px 10px 8px;
+  min-height: 246px;
+  display: flex;
+  flex-direction: column;
+}
+
+.porterror-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.porterror-card-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.porterror-card-title {
+  font-weight: 700;
+  color: #1f2d3a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.porterror-card-sub {
+  font-size: 12px;
+  color: #607d8b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.porterror-card-meta {
+  font-size: 11px;
+  color: #455a64;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.porterror-val-red {
+  color: #b3261e;
+}
+
+.porterror-card-chart-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+}
+
+.porterror-card-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #90a4ae;
+  font-size: 12px;
+  text-align: center;
+  padding: 8px;
+}
+
+.porterror-card-legend {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #607d8b;
+}
+
+@media (max-width: 1100px) {
+  .porterror-layout {
+    flex-direction: column;
+  }
+
+  .porterror-col-switch {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .porterror-switch-list {
+    max-height: 38vh;
+  }
+
+  .porterror-input-port {
+    max-width: none;
+    width: 100%;
+  }
+
+  .porterror-ranges {
+    margin-left: 0;
+  }
+}

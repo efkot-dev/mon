@@ -1,0 +1,72 @@
+CREATE TABLE `car` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text,
+  `nomer` text,
+  `odometr` int(11) DEFAULT NULL,
+  `zamina_masla` int(11) DEFAULT NULL,
+  `health` int(11) DEFAULT NULL,
+  `type_motor` int(11) DEFAULT NULL,
+  `descr` text,
+  `to` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+ALTER TABLE users_odometr ADD `car_id` int(11) DEFAULT NULL;
+ALTER TABLE car_cto ADD `mileage` int(11) DEFAULT NULL;
+ALTER TABLE car_cto ADD `progress` int(11) DEFAULT NULL;
+ALTER TABLE car_cto ADD `cto` int(11) DEFAULT NULL;
+ALTER TABLE car_cto ADD `close_money` int(11) DEFAULT NULL;
+ALTER TABLE car_cto ADD `close_odometr` int(11) DEFAULT NULL;
+
+CREATE TABLE `users_car` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `car_id` int(11) DEFAULT NULL,
+  `moder_id` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+CREATE TABLE `block_ip` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `ip_address` varchar(45) NOT NULL,
+  `userid` int(11) NOT NULL,
+  `types` varchar(200) NOT NULL,
+  `added` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE `billing_usr` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  
+  `uid` int(11) DEFAULT NULL,
+  `dogovir` int(11) DEFAULT NULL,
+  `platijniy` int(11) DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `ip` int(11) DEFAULT NULL,
+  
+  `org` text,
+  `pib` text,
+  `mobile` text,
+  
+  `city` text,
+  `street` text,
+  `houser` text,
+  `nomer` text,
+  `subnomer` text,
+  
+  `locationid` int(11) DEFAULT NULL,
+  
+  `onuid` int(11) DEFAULT NULL,
+  `onumac` text,
+  `deviceid` int(11) DEFAULT NULL,
+  `portidid` int(11) DEFAULT NULL,
+  `device_type` text,
+  
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+ALTER TABLE `car_cto`
+ADD `progress` int(11) NULL AFTER `km`;
+ALTER TABLE `car_cto`
+ADD `mileage` int(11) NULL AFTER `km`;

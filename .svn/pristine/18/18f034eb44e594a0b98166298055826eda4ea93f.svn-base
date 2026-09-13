@@ -1,0 +1,93 @@
+<?php
+if (!defined('PONMONITOR')){
+	die('Hacking attempt!');
+}
+$checkLicenseSwitch = getSwitchAll();
+if (isset($checkLicenseSwitch) && $checkLicenseSwitch !== false) {
+    $get_olt = count($checkLicenseSwitch);
+} else {
+    $get_olt = 0;
+}
+
+$m_menu = '<nav>';
+$m_menu .= '<ul>';
+if($get_olt>0){
+$m_menu .= '<li><a href="/?do=search">'.$lang['btn_menu_search_ont'].'</a></li>';
+}
+$m_menu .= '<li class="dropdown"><a href="#">'.$lang['btn_menu_device'].'</a><ul class="dropdown-menu">';
+$m_menu .= '<li><a href="/?do=pon"><i class="fi fi-rr-list"></i>'.$lang['btn_menu_list'].' Pon</a></li>';
+if($access->get('porterror')){
+	$m_menu .= '<li><a href="/?do=porterror"><i class="fi fi-rr-info"></i>'.$lang['porterr'].'</a></li>';
+}
+if($access->get('statusport')){
+	$m_menu .= '<li><a href="/?do=statusport"><i class="fi fi-rr-stats"></i>'.$lang['portmon'].'</a></li>';
+}
+$m_menu .= '</ul></li>';
+if($access->get('sklad')){
+	$m_menu .= '<li class="dropdown"><a href="#">'.$lang['cfg_tmc_sklad'].'</a><ul class="dropdown-menu">';
+	if (isset($confPMon['SKLAD']) && !empty($confPMon['SKLAD']) && $confPMon['SKLAD'] == 1 && $access->get('manager_sklad')) {
+
+	}
+	$m_menu .= '<li><a href="/?do=location"><i class="fi fi-rr-building"></i>'.$lang['location'].'</a></li>';
+	$m_menu .= '<li><a href="/?do=group"><i class="fi fi-rr-users"></i>'.$lang['group'].'</a></li>';
+	$m_menu .= '<li><a href="/?do=add&act=all"><i class="fi fi-rr-layers"></i>'.$lang['sklad'].'</a></li>';
+	$m_menu .= '</ul></li>';
+}
+if($access->get('setup')){
+	$m_menu .= '<li class="dropdown"><a href="#">'.$lang['btn_menu_sys'].'</a><ul class="dropdown-menu">';
+	$m_menu .= '<li><a href="/?do=config"><i class="fi fi-rr-settings"></i>'.$lang['btn_menu_conf'].'</a></li>';
+	$m_menu .= '<li><a href="/?do=apibilling"><i class="fi fi-rr-rocket-lunch"></i>API Billing</a></li>';
+	$m_menu .= '<li><a href="/?do=test"><i class="fi fi-rr-megaphone"></i>Test telegram</span></a></li>';
+	$m_menu .= '<li><a href="/?do=oid"><i class="fi fi-rr-print"></i>'.$lang['btn_menu_oid_m'].'</a></li>';
+	$m_menu .= '<li><a href="/?do=users"><i class="fi fi-rr-users"></i>'.$lang['btn_menu_user'].'</a></li>';
+	if (isset($confPMon['PMONAPI']) && !empty($confPMon['PMONAPI']) && $confPMon['PMONAPI'] == 1 && $access->get('setup')) {
+		$m_menu .= '<li><a href="/?do=pmonapi"><i class="fi fi-rr-rocket-lunch"></i>'.$lang['apiaccess'].'</a></li>';
+	}	
+	if(isset($config['telegram']) && $config['telegram']=='on'){
+		$m_menu .= '<li><a href="/?do=telegram"><i class="fi fi-rr-paper-plane"></i>Telegram</a></li>';
+	}
+	if($access->get('setup')) {
+		$m_menu .= '<li><a href="/?do=update"><i class="fi fi-rr-sparkles"></i>'.$lang['btn_menu_update'].'</a></li>';
+	}
+	$m_menu .= '<li><a href="https://play.google.com/store/apps/details?id=com.app.linkpro"><i class="fi fi-rr-briefcase"></i>PMon APK</a></li>';
+	$m_menu .= '</ul></li>';
+}
+$m_menu .= '<li><a href="/?do=map">'.$lang['map'].'</a></li>';
+#$m_menu .= '<li><a href="/?do=exit">'.$lang['btn_menu_exit'].'</a></li>';
+$m_menu .= '</ul>';
+$m_menu .= '</nav>';
+$m_menu .= '<div id="block-main-right">';
+if($get_olt>0){
+$m_menu .= '<div class="block-main">
+		<form class="form_search">
+		<input type="text" name="zapros" placeholder="'.$lang['search'].'" value="" autocomplete="off" class="search-input" id="search_form_pmon">
+		<span class="icon-search" onclick="search_pmon()"><i class="fi fi-rr-search"></i></span>
+		</form>
+	</div>';
+}
+$m_menu .= '
+	<div class="block-main r-menu">
+		<a href="/?do=info" class="dr-menu-info">'.$pmonimg['svg']['info'].'</a>
+		<a href="#" class="menu_main">'.$pmonimg['svg']['exit'].'</a>
+		<div class="dr-menu">
+			<a href="/?do=profile"><i class="fi fi-rr-life-ring"></i>'.$lang['menu_profile'].'</a>
+			<a href="/?edit=menu"><i class="fi fi-rr-life-ring"></i>'.$lang['menu_setup'].'</a>
+			<a href="/?do=exit"><i class="fi fi-rr-running"></i>'.$lang['exit'].'</a>
+		</div>
+	</div>
+</div>';
+$m_menu .= '
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var menuLink = document.querySelector(\'.menu_main\');
+    var menu = document.querySelector(\'.dr-menu\');
+    menuLink.addEventListener("mouseenter", function() {
+        menu.style.display = "block";
+    });
+    menu.addEventListener("mouseleave", function() {
+        menu.style.display = "none";
+    });
+});
+</script>';
+?>
+

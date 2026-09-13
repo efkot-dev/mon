@@ -1,0 +1,26 @@
+CREATE TABLE `car_cto` (
+    `id` INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `status` INT(11) NULL,
+    `added` DATETIME NULL,
+    `start_odometer` INT(11) NULL,
+    `km` INT(11) NULL,
+    `name` TEXT NULL,
+    `note` TEXT NULL,
+    `close` DATETIME NULL,
+    `update` DATETIME NULL,
+    `car_id` INT(11) NOT NULL
+);
+ALTER TABLE car_cto ADD `typesto` TEXT NULL DEFAULT NULL AFTER car_id;
+
+
+CREATE TABLE `support` (
+    `id` INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `status` INT(11) NULL,
+    `create_at` DATETIME NULL,
+    `onukey` INT(11) NULL,
+    `onuid` INT(11) NULL,
+    `title` TEXT NULL,
+    `note` TEXT NULL,
+    `close_at` DATETIME NULL,
+    `billingid` INT(11) NOT NULL
+);

@@ -1,0 +1,16 @@
+CREATE TABLE `geodevice` (
+  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` text,
+  `iconmapper` text,
+  `device` text,
+  `deviceid` int(11) DEFAULT NULL,
+  `iconup` text,
+  `icondown` text,
+  `added` datetime DEFAULT NULL,
+  `offline` datetime DEFAULT NULL,
+  `online` datetime DEFAULT NULL,
+  `status` text,
+  `lan` text,
+  `lon` text,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

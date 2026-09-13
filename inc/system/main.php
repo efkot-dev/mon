@@ -1,0 +1,287 @@
+﻿<?php
+if (!defined('PONMONITOR')){
+    die('Hacking attempt!');
+}
+$pon_device = false;
+$checkLicenseSwitch = getSwitchAll();
+if(isset($checkLicenseSwitch) && count($checkLicenseSwitch)>0){
+	$pon_device = true;
+}
+$div_message = '';
+if (!$pon_device) {
+    $div_message = Message::render(
+        $pmess ?? 'info',
+        'Мережеве обладнання',
+        'Для коректної роботи PMon, необхідно <a href="/?do=add&act=all">додати комутатори</a>'
+    );
+}
+$metatags = array('title'=>$lang['pmontitle'],'description'=>$lang['pmon'],'page'=>'main');
+$fdbtable = false;
+$hide = isset($_GET['hide']) ? trim($_GET['hide']) : false;
+if (isset($confPMon['FDB_TABLE']) && !empty($confPMon['FDB_TABLE']) && $confPMon['FDB_TABLE'] == 1){
+	$fdbtable = true;
+}
+$ajaxScript = '
+'.($access->get('block_main_stats') ? '
+	ajaxmain(\'onus\',\'stats\'); 
+	get_signal_sfp();
+' : '').'
+ajaxmain(\'porterror\',\'porterror\');
+'.(!empty($confPMon['CAR']) && $confPMon['CAR'] == 1 && checkAccess(2)?'ajaxcar();':'').'
+'.($access->get('block_main_curday') ?'
+ajaxmain(\'stats\',\''.(isset($_GET['stats']) ? Clean::str($_GET['stats']) : 'curday').'\');
+':'').'
+'.($access->get('block_main_online') && !empty($confPMon['USER_ONLINE']) && $confPMon['USER_ONLINE'] == 1 ? 'ajaxmain(\'online\',\'online\')':'').'
+'.($access->get('block_main_calendar') && !empty($confPMon['CALENDAR']) && $confPMon['CALENDAR'] == 1 ? 'ajaxmain(\'calendar\',\'calendar\')':'').'
+'.($access->get('block_main_board_fault') && !empty($confPMon['BOARD_FAULT']) && $confPMon['BOARD_FAULT'] == 1 ? 'get_board();':'').'
+'.(($access->get('porterror') || $access->get('pon_calc') || $access->get('monitordevice') || (!empty($USER['class']) && $USER['class'] >= 4)) ? '
+ajaxmain(\'digitaltwin\',\'problems\');
+':'').'
+
+';
+$result = '<script>'.$ajaxScript.'</script>
+';
+$mess = '';
+$result .= '<div class="admin-1"><div class="admin-2">';
+if ($act=='sfp' && $access->get('porterror')) {
+    $result .= '<div id="main-port"></div>';
+} else {
+	if($pon_device){
+	$acces_olt = false;
+	$deviceTypes = array_column($checkLicenseSwitch, 'device');
+	if (in_array('olt', $deviceTypes)) {
+		$acces_olt = true;	
+	}
+	$result .='<div class="main-panel">';
+		if ($pon_device && $acces_olt) {
+			$result .= m_url('pon','?do=pon','pondevice.png',$lang['ponmain']);
+			if ($access->get('duble_onu')) {
+				$result .= m_url('duplicated','?do=duplicated','dubleonu.png',$lang['duble_onu']);
+			}
+			$sql_off_onu = $db->Simple("
+				SELECT COUNT(idonu) AS off_onu 
+				FROM onus 
+				LEFT JOIN checkaccess a ON CONCAT('dev', olt) = a.types AND a.uid = '{$USER['id']}'
+				WHERE offline >= CURDATE() 
+					AND status = '2'
+						AND (a.uid IS NOT NULL OR idonu IS NULL)
+							ORDER BY offline DESC");
+			if(isset($sql_off_onu['off_onu']) && $sql_off_onu['off_onu']>0){
+				$result .= m_url('onuoffline','?do=onuoffline','onuoffline24.png',$lang['onu_offline_main'],'<span class="offes">'.$sql_off_onu['off_onu'].'</span>');
+			}
+			$result .= m_url('nagios','?do=nagios','nagios.png',$lang['insector_functions_main']);
+		}
+		if ($fdbtable) {
+			$result .= m_url('fdbmacaddress','?do=fdbmacaddress','main_fdb_table.png','Mac address-table');
+		}
+		if (isset($confPMon['PMON_BILLING']) && !empty($confPMon['PMON_BILLING']) && $confPMon['PMON_BILLING'] == 1) {
+			$result .= m_url('billing','?do=billing','pmon_billing.png','Usr Billing');
+		}
+		if (isset($confPMon['ENABLE_ONU_LOSS']) && !empty($confPMon['ENABLE_ONU_LOSS']) && $confPMon['ENABLE_ONU_LOSS'] == 1) {
+			$sql_reason_onu = $db->Simple("
+				SELECT COUNT(idonu) AS los_onu 
+				FROM onus 
+				LEFT JOIN checkaccess a ON CONCAT('dev', olt) = a.types AND a.uid = '{$USER['id']}'
+				WHERE offline >= CURDATE() 
+					AND (status = '2' AND (reason = 'err8' OR reason = 'err6'))
+						AND (a.uid IS NOT NULL OR idonu IS NULL)
+							ORDER BY offline DESC");
+			if(isset($sql_reason_onu['los_onu']) && $sql_reason_onu['los_onu']>0){
+				$result .= m_url('los','?do=onuoffline&act=los','onuloss24.png','Onu Los',' <span class="loses">'.$sql_reason_onu['los_onu'].'</span>');
+			}
+		}
+		if ($acces_olt) {
+			$sql_last_onu = $db->Simple("SELECT COUNT(idonu) AS sig_onu 
+				FROM onus 
+				LEFT JOIN checkaccess a ON CONCAT('dev', olt) = a.types AND a.uid = '{$USER['id']}'
+				WHERE changerx >= CURDATE()
+				  AND (a.uid IS NOT NULL OR idonu IS NULL)");
+			if(isset($sql_last_onu['sig_onu']) && $sql_last_onu['sig_onu']>0){
+				$result .= m_url('changesignal','?do=changesignal','listonusignal.png',$lang['criticsignalonu'],'<span class="currx">'.$sql_last_onu['sig_onu'].'</span>');
+			}
+			$result .= m_url('badsignal','?do=badsignal','listonurx.png',$lang['bad_signal_main'].' <b>ONU</b>');
+		}
+		if (in_array('switch', $deviceTypes)) {
+			$result .= m_url('switch','?do=switch','switchdevice.png',$lang['ethmain']);
+		}
+		if ($access->get('pon_load')) {
+			$result .= m_url('loadport','?do=loadport','loadport.png',$lang['loadport']);
+			$result .= m_url('onuevents','?do=onuevents','network_signal.png','ONU Status Chart');
+		}
+		if (isset($confPMon['PON_HIGH_RISE']) && !empty($confPMon['PON_HIGH_RISE']) && $confPMon['PON_HIGH_RISE'] == 1) {
+			$result .= m_url('house','?do=house','officepon.png',$lang['ponhouse']);
+		}
+		if ($access->get('view_map')) {
+			$result .= m_url('map','?do=map','mapcity.png',$lang['map']);
+		}	
+		if (isset($confPMon['BANDWIDTH']) && !empty($confPMon['BANDWIDTH']) && $confPMon['BANDWIDTH'] == 1) {
+			$result .= m_url('bandwidth','?do=bandwidth', 'bdcom_speed.png', $lang['monitor_traffic']);
+		}		
+		if (isset($confPMon['TRANSPORT_ONU']) && !empty($confPMon['TRANSPORT_ONU']) && $confPMon['TRANSPORT_ONU'] == 1) {
+			$result .= m_url('transport','?do=transport', 'transport.png', $lang['group'].' ONU');
+		}	
+		if (isset($confPMon['TEMPLATE_REGISTER']) && !empty($confPMon['TEMPLATE_REGISTER']) && $confPMon['TEMPLATE_REGISTER'] == 1) {
+			if ($access->get('regonu')) {
+				$result .= m_url('regonu','?do=regonu&act=checker', 'reger.png', $lang['onuregister']);
+			}
+			if ($access->get('great_template')) {
+				$result .= m_url('template','?do=regonu&act=template', 'template.png', $lang['template_telnet']);
+			}
+		}
+		if (isset($confPMon['BATTERY']) && !empty($confPMon['BATTERY']) && $confPMon['BATTERY'] == 1) {
+			$sql_used = $db->Simple("SELECT count(id) as count FROM battery_used");
+			$sql_battery = $db->Simple("SELECT count(id) as count FROM battery");
+			$count_free = $sql_battery['count'] - $sql_used['count'];
+			$url_battery = (isset($sql_used) && $sql_used['count']>0 ? '<span class="greens">'.$sql_used['count'].'</span>' : '').(isset($sql_battery) && $count_free>0 ? '<span class="blues">'.$count_free.'</span>' : '').'';
+			$result .= m_url('battery','?do=battery', 'battery.png', $lang['akymyliator'],$url_battery);
+		}
+		if (isset($confPMon['PING3']) && !empty($confPMon['PING3']) && $confPMon['PING3'] == 1) {
+			$result .= m_url('ping3','?do=ping3', 'ping.png', $lang['monitor_akb']);
+		}		
+		if (isset($confPMon['SECURITY_PING3']) && !empty($confPMon['SECURITY_PING3']) && $confPMon['SECURITY_PING3'] == 1) {
+			$alarm_enable = $db->Simple("SELECT count(id) as count FROM alarm_ping3 WHERE status = 1");
+			$alarm_start = $db->Simple("SELECT count(id) as count FROM alarm_ping3 WHERE status = 0");
+			$html_enable = (isset($alarm_enable) && $alarm_enable['count']>0 ? '<span class="greens">'.$alarm_enable['count'].'</span>' : '');
+			$html_alarm = (isset($alarm_start) && $alarm_start['count']>0 ? '<span class="loses">'.$alarm_start['count'].'</span>' : '');
+			$result .= m_url('ping3','?do=alarm', 'security_ping3.png', $lang['alarm_ping3'].' '.$html_enable.$html_alarm);
+		}	
+		if (isset($confPMon['SIGNALSFP']) && !empty($confPMon['SIGNALSFP']) && $confPMon['SIGNALSFP'] == 1 && $access->get('porterror') && $pon_device) {
+			$result .= m_url('sfpsignal','?do=sfpsignal', 'sfp.png', $lang['signalsfp']);
+		}
+		if (isset($confPMon['TEMPERATURE_MONITOR']) && !empty($confPMon['TEMPERATURE_MONITOR']) && $confPMon['TEMPERATURE_MONITOR']==1) {
+			$result .= m_url('monitor_temp','?do=temp&act=list', 'monitor_temp.png', 'Моніторинг температури');
+		}
+		if (isset($confPMon['ERRORSFP']) && !empty($confPMon['ERRORSFP']) && $confPMon['ERRORSFP'] == 1 && $access->get('porterror') && $pon_device) {
+			$result .= m_url('porterror','?do=porterror', 'porterror.png', $lang['porterr']);
+		}
+		if (($access->get('porterror') || $access->get('pon_calc') || $access->get('monitordevice')) && $pon_device) {
+			$result .= m_url('digitaltwin','?do=digitaltwin', 'network_signal.png', 'Digital Twin ISP');
+			$result .= m_url('signaldegradation','?do=signaldegradation', 'listonusignal.png', 'Деградація ONU');
+			$result .= m_url('portsfpcrc','?do=portsfpcrc', 'porterror.png', 'Проблеми SFP / CRC');
+		}
+		if(isset($confPMon['STICKERS']) && !empty($confPMon['STICKERS']) && $confPMon['STICKERS']==1){
+			$result .= m_url('stickers','?do=stickers', 'stickers.png', $lang['stikers']);
+		}
+		if ((isset($confPMon['ENABLE_BLACKLIST_CDATA11']) && !empty($confPMon['ENABLE_BLACKLIST_CDATA11']) && $confPMon['ENABLE_BLACKLIST_CDATA11'] == 1) || 
+			(isset($confPMon['ENABLE_BLACKLIST_CDATA12']) && !empty($confPMon['ENABLE_BLACKLIST_CDATA12']) && $confPMon['ENABLE_BLACKLIST_CDATA12'] == 1)) {
+			$result .= m_url('getblacklist','?do=getblacklist', 'getblacklist.png', $lang['getblacklist']);
+			
+		}
+		#if (isset($confPMon['MAC_ROUTER']) && !empty($confPMon['MAC_ROUTER']) && $confPMon['MAC_ROUTER'] == 1) {
+			$result .= m_url('ponanalyz','?do=ponscanner', 'ponanalyz.png', 'PON Analyzer');		
+		#}
+		if (isset($confPMon['FIBERMAP']) && !empty($confPMon['FIBERMAP']) && $confPMon['FIBERMAP'] == 1) {
+			$result .= m_url('fiber','?do=fiber&act=unit', 'ponbox.png', $lang['pon_network']);
+		}
+		if ($access->get('pon_calc')) {
+			$result .= m_url('poncalc','?do=poncalc', 'gponcalc.png', $lang['pon_calc']);
+		}
+		if (isset($confPMon['SKLAD']) && !empty($confPMon['SKLAD']) && $confPMon['SKLAD'] == 1 && $access->get('sklad')) {
+			$result .= m_url('tmc','?do=tmc', 'main_tmc_sklad.png', $lang['sklad']);
+		}
+		if (isset($confPMon['MONITOR_IP']) && !empty($confPMon['MONITOR_IP']) && $confPMon['MONITOR_IP'] == 1) {
+			$sql_mon_ip = $db->Simple("SELECT count(id) as sender FROM monitor_ip WHERE status = '2' AND monitor = 'yes'");
+			if (isset($sql_mon_ip['sender']) && $sql_mon_ip['sender'] > 0) {
+				$mess = ' <span class="loses">' . $sql_mon_ip['sender'] . '</span>';
+			}
+			$result .= m_url('monitorip','?do=monitorip', 'monitorip.png', $lang['monitor_ip'] . $mess);
+		}
+		if ($acces_olt) {
+			if(isset($confPMon['ONU_ERROR']) && !empty($confPMon['ONU_ERROR']) && $confPMon['ONU_ERROR']==1){
+			$result .= m_url('onulist','?do=onuerror', 'onuoffline.png', 'ONU Error');
+			}
+			$result .= m_url('onulist','?do=onulist', 'onuoffline.png', $lang['onu_offline_list']);
+			$result .= m_url('onulistlos','?do=onulist&act=los', 'onuloss.png', $lang['list'] . ' Onu Los');
+			if ($access->get('great_zvit')) {
+				$result .= m_url('zvit','?do=zvit', 'zvit.png', $lang['main_zvit']);
+			}
+		}
+		if ($access->get('setup')) {
+			$result .= m_url('operator','?do=operator', 'core_pmon.png', $lang['btn_menu_sys']);
+		}
+		$result .= m_url('service','?do=service', 'pondevice.png', $lang['services']);	
+		if (isset($confPMon['TASKMAN']) && !empty($confPMon['TASKMAN']) && $confPMon['TASKMAN'] == 1) {
+
+		}
+		if (isset($confPMon['OBL_ENERGO']) && !empty($confPMon['OBL_ENERGO']) && $confPMon['OBL_ENERGO'] == 1) {
+			$result .= m_url('oblenergo','?do=oblenergo', 'mainpillar.png', $lang['oblenergo']);
+		}	
+		if (isset($confPMon['CALENDAR']) && !empty($confPMon['CALENDAR']) && $confPMon['CALENDAR'] == 1 && $access->get('calendar')) {
+			$result .= m_url('calendar','?do=calendar', 'calendar_pmon.png', $lang['calendar']);
+		}
+		if (isset($confPMon['CAR']) && !empty($confPMon['CAR']) && $confPMon['CAR'] == 1 && $access->get('view_car')) {
+			$car = '';
+			$sql_data = ['sql' => 'SELECT count(id) as car FROM users_car', 'key' => 'users_car', 'time' => 600];
+			$sql_notification = cache_simple_sql($sql_data);
+			if (isset($sql_notification['car']) && $sql_notification['car'] > 0) {
+				$car = '<span class="notification">' . $sql_notification['car'] . '</span>';
+			}
+			$result .= m_url('car','?do=car', 'list_car.png', $lang['car'] . $car);
+		}
+		if ((isset($confPMon['GPS_TRACCAR']) && !empty($confPMon['GPS_TRACCAR']) && $confPMon['GPS_TRACCAR'] == 1) ||
+			(isset($confPMon['GPS_TRACKER_COM_UA']) && !empty($confPMon['GPS_TRACKER_COM_UA']) && $confPMon['GPS_TRACKER_COM_UA'] == 1)) {
+			$result .= m_url('gps','?do=gps', 'gps_tracker.png', 'GPS tracking');
+		}
+		if (isset($confPMon['CONCURENT_MAP']) && !empty($confPMon['CONCURENT_MAP']) && $confPMon['CONCURENT_MAP'] == 1) {
+			$result .= m_url('competitor','?do=competitor', 'concurent.png', 'Покриття конкурентів');
+		}		
+		if (isset($confPMon['BOARD_FAULT']) && !empty($confPMon['BOARD_FAULT']) && $confPMon['BOARD_FAULT'] == 1 && $access->get('board_fault_view')) {
+			$result .= m_url('competitor','?do=board', 'board_fault.png', 'Дошка аварій');
+		}
+		if ($access->get('porterror')) {
+			$result .= m_url('portmonitor','?do=portmonitor', 'portmonitor.png', $lang['monitorport']);
+		}
+		if (isset($confPMon['GENERATOR']) && !empty($confPMon['GENERATOR']) && $confPMon['GENERATOR'] == 1){
+			$result .= m_url('devices','?do=generator', 'generator.png', $lang['module_generator']);
+		}
+		if (isset($confPMon['IPCAM']) && !empty($confPMon['IPCAM']) && $confPMon['IPCAM'] == 1) {
+			$result .= m_url('devices','?do=surveillance', 'main_devices.png', 'Відеоспостереження');
+		}		
+		if (isset($confPMon['NETWORK_TOPOLOGY']) && !empty($confPMon['NETWORK_TOPOLOGY']) && $confPMon['NETWORK_TOPOLOGY'] == 1) {
+			$result .= m_url('devices','?do=topology', 'rsyslog.png', 'Network topology');
+		}
+		$result .= '</div>';
+	}
+	if($hide=='stats' && $access->get('setup')){
+		
+	}else{
+		$result .= '
+			<div id="block_signal"></div>
+			<div id="main-porterror"></div>		
+			<div id="main-stats"></div>		
+			<div id="listbadsignal"></div>
+			';
+	}
+}
+$result .= '</div><div class="admin-4">';
+	$result .= '<div id="main-digitaltwin"></div>';
+	$containers = '';
+	$scripts = '';
+	$containers .= '<div id="main-board"></div>';
+	if ($access->get('stats_new_added')) {
+		$containers .= '<div id="stats_new_added-container"></div>';
+		$scripts .= 'stats_new_added("' . $lang['stats_new_added'] . '");';
+	}
+	if ($access->get('stats_disconnect')) {
+		$containers .= '<div id="stats_disconnect-container"></div>';
+		$scripts .= 'stats_disconnect("' . $lang['stats_disconnect'] . '");';
+	}
+	$result .= $containers;
+	if ($scripts) {
+		$result .= "<script>$scripts</script>";
+	}
+	$result .= ''.(isset($confPMon['USER_ONLINE']) && !empty($confPMon['USER_ONLINE']) && $confPMon['USER_ONLINE'] == 1 && isset($USER['class']) && $USER['class']>=4 ?'<div id="main-online"></div>':'').'';
+	$result .= ''.(isset($confPMon['CALENDAR']) && !empty($confPMon['CALENDAR']) && $confPMon['CALENDAR'] == 1?'<div id="main-calendar"></div>':'').'';
+	$result .= ''.(isset($confPMon['CAR']) && !empty($confPMon['CAR']) && $confPMon['CAR'] == 1?'<div id="main-car"></div>':'').'';
+	if($act!='vendor'){
+		$result .= '<div id="main-onus"></div>';	
+	}
+	$result .= '<div id="main-snmp"></div>';
+	$result .= main_pmon_log(2);
+$result .= '</div></div>';
+$tpl->load_template('main/main.tpl');
+$tpl->set('{block-main}', $div_message.'<div class="mainadmin">'.$result.'</div>');
+$tpl->compile('content');
+$tpl->clear();
+?>
+

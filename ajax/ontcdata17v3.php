@@ -1,0 +1,128 @@
+<?php
+define('AJAX',true);
+define('ONT',true);
+define('ROOT_DIR',substr( dirname( __FILE__),0,-5));
+define('ENGINE_DIR',ROOT_DIR.'/inc/');	
+require_once ENGINE_DIR.'ajax.php';
+if($_POST['id']){
+$id = isset($_POST['id']) ? Clean::int($_POST['id']): null;
+$getONT = $db->Fast('onus','*',['idonu' => $id]);
+if(!empty($getONT['idonu'])){
+$getOLT = $db->Fast('switch','*',['id' => $getONT['olt']]);
+$snmp_vlan = '';
+
+$support_port_onu = array('3024','1112','1005','208B','417R','X640');
+
+if(!empty($getOLT['netip']) && !empty($getOLT['class']) && $getOLT['oidid']==44){	
+	$onu_model = @snmp2_get($getOLT['netip'], $getOLT['snmpro'], '1.3.6.1.4.1.17409.2.8.4.1.1.6.'.$getONT['keyonu'], 100000, 5);
+	if (isset($onu_model) && $onu_model!=false) {
+		$get_onu_model = getsnmp_string($onu_model);
+		
+	}
+	if (isset($get_onu_model) && in_array(strtoupper($get_onu_model), array_map('strtoupper', $support_port_onu))) {
+		$all_eth_bdcom = @snmp2_real_walk($getOLT['netip'],$getOLT['snmpro'],'1.3.6.1.4.1.17409.2.8.5.1.1.5.'.$getONT['keyonu'].'.0');	
+		if(isset($all_eth_bdcom) && is_array($all_eth_bdcom)){
+			$countport = 1;
+			echo'<div class="zte_onu"><div class="zte_eth">';
+			foreach ($all_eth_bdcom as $onu_eth) {
+				$onu_eth = typeOnubdcomPort($onu_eth);
+				echo'<div class="link link4"><div class="linkname">Eth'.$countport.'</div><img src="../style/img/'.$onu_eth['img'].'"><div class="linkstatus'.$onu_eth['status'].'"></div></div>';
+				$eth_onu[$countport]['status'] = $onu_eth['status'];			
+				$eth_onu[$countport]['type'] = 'eth';	
+				$countport ++ ;				
+			}
+			echo $tv_port.'</div>';
+		}
+	}else{
+		$ethvalue = @snmp2_get($getOLT['netip'], $getOLT['snmpro'], '1.3.6.1.4.1.17409.2.8.5.1.1.5.' . $getONT['keyonu'].'.0.1', 100000, 5);
+		if(isset($ethvalue)){
+			$onu_eth = typeOnubdcomPort($ethvalue);
+			echo'
+			<div class="zte_onu">
+				<div class="zte_eth">
+					<div class="link link4">
+						<div class="linkname">Eth1</div>
+						<img src="../style/img/'.$onu_eth['img'].'">
+						<div class="linkstatus'.$onu_eth['status'].'"></div>
+					</div>
+				</div>
+			</div>';	
+		}
+	}
+	echo'<div class="block_dbm">
+		<div class="zte_status">
+			<div class="zte_gettype">
+				<span>Port status:</span>
+					<span class="typeportstatus">
+						<div class="eth_online"></div>
+						<div class="eth_name">Online</div>
+						<div class="eth_offline"></div>
+						<div class="eth_name">Offline</div>
+						<div class="eth_disable"></div>
+						<div class="eth_name">Disable</div>
+					</span>
+				</div>
+			</div>
+		</div></div>';
+	
+	echo'<div class="block_dbm">';
+	$tx_value = @snmp2_get($getOLT['netip'], $getOLT['snmpro'],'1.3.6.1.4.1.17409.2.8.4.4.1.5.'. $getONT['keyonu'].'.0.'. $getONT['portolt'].'');
+	if ($tx_value) {
+		$tx_value = preg_replace('/^.*?(?=INTEGER:)/i', '', $tx_value);
+		$tx_value = preg_replace('/INTEGER:/', '', $tx_value);
+		$tx_value = str_replace(['"', 'N/A'], ['', '0'], $tx_value);
+		$tx_value = trim($tx_value);
+		$tx_value = floatval($tx_value) / 100;
+		$tx_value = number_format($tx_value, 2);
+		$minbad = (!empty($config['badsignalstart'])?$config['badsignalstart']:2);
+		$olt_color = $tx_value > $minbad ? "red" : "#36b105";
+		echo '<div class="dbm_block">
+				<div class="i"><img src="../style/img/rx.png"></div>
+				<div class="text">
+					<div class="n">TX ONU</div>
+					<div class="s"><span style="color:' . $olt_color . ';">' . $tx_value . '</span><b>dBm</b></div>
+				</div>
+			</div>';
+	}
+	$rx_value = @snmp2_get($getOLT['netip'], $getOLT['snmpro'], '1.3.6.1.4.1.17409.2.8.4.4.1.4.'. $getONT['keyonu'].'.0.'. $getONT['portolt'].'');
+	if ($rx_value) {
+		$rx_value = preg_replace('/^.*?(?=INTEGER:)/i', '', $rx_value);
+		$rx_value = preg_replace('/INTEGER:/', '', $rx_value);
+		$rx_value = str_replace(['"', 'N/A'], ['', '0'], $rx_value);
+		$rx_value = trim($rx_value);
+		$rx_value = floatval($rx_value) / 100;
+		$rx_value = number_format($rx_value, 2);
+		$minbad = (!empty($config['badsignalstart'])?$config['badsignalstart']:26);
+		$olt_color = $rx_value < -$minbad ? "red" : "#36b105";
+		echo '<div class="dbm_block">
+				<div class="i"><img src="../style/img/rx.png"></div>
+				<div class="text">
+					<div class="n">RX ONU</div>
+					<div class="s"><span style="color:' . $olt_color . ';">' . $rx_value . '</span><b>dBm</b></div>
+				</div>
+			</div>';
+	}		
+	
+	$rxolt_value = @snmp2_get($getOLT['netip'], $getOLT['snmpro'], '1.3.6.1.4.1.17409.2.3.3.6.1.2.' . $getONT['keyonu']);
+	if ($rxolt_value) {
+		$rxolt_value = preg_replace('/^.*?(?=INTEGER:)/i', '', $rxolt_value);
+		$rxolt_value = preg_replace('/INTEGER:/', '', $rxolt_value);
+		$rxolt_value = str_replace(['"', 'N/A'], ['', '0'], $rxolt_value);
+		$rxolt_value = trim($rxolt_value);
+		$rxolt_value = floatval($rxolt_value) / 100;
+		$rxolt_value = number_format($rxolt_value, 2);
+		$olt_color = $rxolt_value < -29 ? "red" : "#36b105";
+		echo '<div class="dbm_block">
+				<div class="i"><img src="../style/img/rx.png"></div>
+				<div class="text">
+					<div class="n">RX OLT</div>
+					<div class="s"><span style="color:' . $olt_color . ';">' . $rxolt_value . '</span><b>dBm</b></div>
+				</div>
+			</div>';
+	}	
+	
+	echo'</div>';
+}
+}
+}
+?>

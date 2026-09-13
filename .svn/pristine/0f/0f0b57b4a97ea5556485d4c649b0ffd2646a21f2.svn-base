@@ -1,0 +1,1503 @@
+<?php
+if (!defined('PONMONITOR')){
+	die('Hacking attempt!');
+}
+$added = date('Y-m-d H:i:s');
+switch($act){			
+case 'addusr':
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		if($id!=false){		
+		echo'<div class="usr_billing">
+		<input type="hidden" id="ponelement" name="ponelement" value="'.$id.'">
+		<input type="hidden" id="usrid" name="usrid" value="">
+		';
+		?><label class="labspon"><input type="text" class="input1" id="user" name="user" required autocomplete="off">
+		<input class="jsadded block_none" type="submit" value="<?=$lang['add'];?>" >
+		</label>
+		<div id="searchonu"></div>
+		</div><script>
+		$(document).ready(function() {
+			$('#user').on('input', function() {
+				var searchText = $(this).val();
+				$.ajax({
+					method: 'POST',
+					url: root + '?do=core',
+					data: {act: 'getuser', usr: searchText},
+					success: function(response) {
+						$('#searchonu').html(response);
+					}
+				});
+			});
+			$(document).on('click', '.jsadded', function(e) {
+				var user = $('#user').val();
+				var usrid = $('#usrid').val();
+				var ponelement = $('#ponelement').val();
+				$("#opis_element_" + ponelement).hide();
+				$.ajax({
+					method: 'POST',
+					url: root + '?do=core',
+					data: {
+						act:'saveuser',usrid:usrid,user:user,ponelement:ponelement
+					},
+					success: function(response) {
+						location.reload();
+					}
+				});
+			});
+			$(document).on('click', '.select-onu', function(e) {
+				$(".jsadded").show();
+				e.preventDefault();
+				var id = $(this).data('id');
+				var pib = $(this).data('pib');
+				var onuField = $('#usrid');
+				var user = $('#user');
+				onuField.val(id);
+				user.val(pib);
+				$('#searchonu').hide();
+			});
+		});
+		</script>
+		<?php
+		}
+		die;	
+		break;
+	case 'accessuser':			
+		$id = (int)$_GET['id'];
+		if($id>0){
+			$type = ($_GET['type'] === 'on') ? 'yes' : 'no';
+			$db->query("UPDATE users SET access = '".$type."' WHERE id = ".Clean::int($id));
+		}
+		header('Location: /?do=users');
+		exit;	
+		break;
+	case 'saveuser':	    
+		$usrid = isset($_POST['usrid']) ? Clean::int($_POST['usrid']) : null;
+		$ponelement = isset($_POST['ponelement']) ? Clean::int($_POST['ponelement']) : null;
+		if ($usrid !== false && $ponelement !== false && $ponelement>0 && $usrid>0) {
+			$sql= "UPDATE billing_usr  SET `ponid` = '{$ponelement}' WHERE id = '{$usrid}'";
+			$db->query($sql);
+		}
+		exit;
+		break;
+	case 'onulist':	
+		$tplresult = '';	
+		$types = isset($_GET['this']) ? Clean::text($_GET['this']) : null;
+		$date = isset($_GET['date']) ? Clean::text($_GET['date']) : null;
+		$hour = isset($_GET['hour']) ? Clean::int($_GET['hour']) : null;
+		if (isset($types, $date, $hour)) {
+			if ($types == 'graph_onu_signal') {
+				$where_onus = "WHERE onus.status = '1' 
+				AND rxstatus='up' 
+				AND DATE(onus.online) = '$date' 
+				AND HOUR(onus.online) = $hour";
+				$sql = "SELECT onus.*, switch.place AS switch_place, switch.id AS switch_id 
+				FROM onus LEFT JOIN switch ON onus.olt = switch.id $where_onus";
+				$sqltemponu = $db->SimpleWhile($sql);
+				$olt_data = [];
+				if (!empty($sqltemponu)) {
+					foreach ($sqltemponu as $ont) {
+						$olt_data[$ont['switch_id']]['onts'][] = $ont; // Масив ONU для кожного switch_id
+						$olt_data[$ont['switch_id']]['olt_id'] = $ont['switch_id'];
+						$olt_data[$ont['switch_id']]['olt_place'] = $ont['switch_place'];
+					}
+				}
+				if (!empty($olt_data)) {
+					$tplresult .= '<table class="resp-tab"><thead><tr>
+						<th width="5%">'.$lang['status'].'</th>
+						<th>Mac_SN</th>
+						<th width="10%">'.$lang['inface'].'</th>
+						<th width="8%">'.$lang['dist'].'</th>
+						<th width="8%">'.$lang['signal'].'</th>
+						<th width="7%">'.$lang['last_signal'].'</th>
+						<th class="mobile" width="15%">
+							<span class="inf_status">
+								<span class="tim1">'.$lang['online'].'</span>
+								<span class="tim2">'.$lang['offline'].'</span>
+							</span>
+						</th>
+						</tr></thead><tbody>';
+					foreach ($olt_data as $oltid => $olt) {
+						$tplresult .= '<tr><td colspan="10" class="pon_list_olt_"><a href="/?do=badsignal&id='.$olt['olt_id'].'">'.$olt['olt_place'].'</a></td></tr>';
+						foreach ($olt['onts'] as $onu) {
+						$onukey = (!empty($onu['mac'])?$onu['mac']:(!empty($onu['sn'])?$onu['sn']:'n/a'));
+						$onuname = (!empty($onu['name'])? '<span class="bad_name_onu">'.$onu['name'].'</span>':'');
+						$tplresult .= '<tr>
+						<td><span class="statusonu st_'.$onu['status'].'"</span></td>
+						<td class="td_url"><a href="/?do=onu&id='.$onu['idonu'].'">'.($onu['status']==2?'<font color="grey">':'').''.$onukey.' '.$onuname.'</a></td>
+						<td class="td_url"><font color="grey">'.strtoupper($onu['type']).' '.$onu['inface'].'</td>
+						<td class="td_url">'.$onu['dist'].'</td>
+						<td class="bad_list">'.($onu['status']==2?'N/A':'<span class="signal4">'.$onu['rx'].'</span>').'</td>
+						<td>'.($onu['status']==2?'N/A':signalTerminal($onu['lastrx'])).'</td>';
+						$tplresult .= '<td class="mobile">';
+							if($onu['status']==1){
+								$tplresult .= '<span class="on_">'.aftertime($onu['online']).'</span>';
+							}else{
+								$tplresult .= '<span class="off_">'.aftertime($onu['offline']).'</span>';
+							}
+						$tplresult .= '</td>';
+						$tplresult .= '</tr>';
+						}					
+					}
+					$tplresult .= '</table>';
+				}
+			}elseif ($types == 'graph_onu_off') {
+				$where_onus = "WHERE onus.status = '2' AND DATE(onus.offline) = '$date' AND HOUR(onus.offline) = $hour";
+				$sql = "SELECT onus.*, switch.place AS switch_place, switch.id AS switch_id FROM onus LEFT JOIN switch ON onus.olt = switch.id $where_onus";
+				$sqltemponu = $db->SimpleWhile($sql);
+				$olt_data = [];
+				if (!empty($sqltemponu)) {
+					foreach ($sqltemponu as $ont) {
+						$olt_data[$ont['switch_id']]['onts'][] = $ont; // Масив ONU для кожного switch_id
+						$olt_data[$ont['switch_id']]['olt_id'] = $ont['switch_id'];
+						$olt_data[$ont['switch_id']]['olt_place'] = $ont['switch_place'];
+					}
+				}
+				if (!empty($olt_data)) {
+					$tplresult .= '<table class="resp-tab"><thead><tr>
+						<th width="5%">'.$lang['status'].'</th>
+						<th>Mac_SN</th>
+						<th width="10%">'.$lang['inface'].'</th>
+						<th width="8%">'.$lang['dist'].'</th>
+						<th width="8%">'.$lang['signal'].'</th>
+						<th width="7%">'.$lang['last_signal'].'</th>
+						<th class="mobile" width="15%">
+							<span class="inf_status">
+								<span class="tim1">'.$lang['online'].'</span>
+								<span class="tim2">'.$lang['offline'].'</span>
+							</span>
+						</th>
+						</tr></thead><tbody>';
+					foreach ($olt_data as $oltid => $olt) {
+						$tplresult .= '<tr><td colspan="10" class="pon_list_olt_"><a href="/?do=badsignal&id='.$olt['olt_id'].'">'.$olt['olt_place'].'</a></td></tr>';
+						foreach ($olt['onts'] as $onu) {
+						$onukey = (!empty($onu['mac'])?$onu['mac']:(!empty($onu['sn'])?$onu['sn']:'n/a'));
+						$onuname = (!empty($onu['name'])? '<span class="bad_name_onu">'.$onu['name'].'</span>':'');
+						$tplresult .= '<tr>
+						<td><span class="statusonu st_'.$onu['status'].'"</span></td>
+						<td class="td_url"><a href="/?do=onu&id='.$onu['idonu'].'">'.($onu['status']==2?'<font color="grey">':'').''.$onukey.' '.$onuname.'</a></td>
+						<td class="td_url"><font color="grey">'.strtoupper($onu['type']).' '.$onu['inface'].'</td>
+						<td class="td_url">'.$onu['dist'].'</td>
+						<td class="bad_list">'.($onu['status']==2?'N/A':'<span class="signal4">'.$onu['rx'].'</span>').'</td>
+						<td>'.($onu['status']==2?'N/A':signalTerminal($onu['lastrx'])).'</td>';
+						$tplresult .= '<td class="mobile">';
+							if($onu['status']==1){
+								$tplresult .= '<span class="on_">'.aftertime($onu['online']).'</span>';
+							}else{
+								$tplresult .= '<span class="off_">'.aftertime($onu['offline']).'</span>';
+							}
+						$tplresult .= '</td>';
+						$tplresult .= '</tr>';
+						}					
+					}
+					$tplresult .= '</table>';
+				}				
+			}elseif ($types == 'graph_onu_los') {
+				$where_onus = "WHERE onus.status = '2' AND (onus.reason = 'err8' OR onus.reason = 'err6') AND DATE(onus.offline) = '$date' AND HOUR(onus.offline) = $hour";
+				$sql = "SELECT onus.*, switch.place AS switch_place, switch.id AS switch_id FROM onus LEFT JOIN switch ON onus.olt = switch.id $where_onus";
+				$sqltemponu = $db->SimpleWhile($sql);
+				$olt_data = [];
+				if (!empty($sqltemponu)) {
+					foreach ($sqltemponu as $ont) {
+						$olt_data[$ont['switch_id']]['onts'][] = $ont; // Масив ONU для кожного switch_id
+						$olt_data[$ont['switch_id']]['olt_id'] = $ont['switch_id'];
+						$olt_data[$ont['switch_id']]['olt_place'] = $ont['switch_place'];
+					}
+				}
+				if (!empty($olt_data)) {
+					$tplresult .= '<table class="resp-tab"><thead><tr>
+						<th width="5%">'.$lang['status'].'</th>
+						<th>Mac_SN</th>
+						<th width="10%">'.$lang['inface'].'</th>
+						<th width="8%">'.$lang['dist'].'</th>
+						<th width="8%">'.$lang['signal'].'</th>
+						<th width="7%">'.$lang['last_signal'].'</th>
+						<th class="mobile" width="15%">
+							<span class="inf_status">
+								<span class="tim1">'.$lang['online'].'</span>
+								<span class="tim2">'.$lang['offline'].'</span>
+							</span>
+						</th>
+						</tr></thead><tbody>';
+					foreach ($olt_data as $oltid => $olt) {
+						$tplresult .= '<tr><td colspan="10" class="pon_list_olt_"><a href="/?do=badsignal&id='.$olt['olt_id'].'">'.$olt['olt_place'].'</a></td></tr>';
+						foreach ($olt['onts'] as $onu) {
+						$onukey = (!empty($onu['mac'])?$onu['mac']:(!empty($onu['sn'])?$onu['sn']:'n/a'));
+						$onuname = (!empty($onu['name'])? '<span class="bad_name_onu">'.$onu['name'].'</span>':'');
+						$tplresult .= '<tr>
+						<td><span class="statusonu st_'.$onu['status'].'"</span></td>
+						<td class="td_url"><a href="/?do=onu&id='.$onu['idonu'].'">'.($onu['status']==2?'<font color="grey">':'').''.$onukey.' '.$onuname.'</a></td>
+						<td class="td_url"><font color="grey">'.strtoupper($onu['type']).' '.$onu['inface'].'</td>
+						<td class="td_url">'.$onu['dist'].'</td>
+						<td class="bad_list">'.($onu['status']==2?'N/A':'<span class="signal4">'.$onu['rx'].'</span>').'</td>
+						<td>'.($onu['status']==2?'N/A':signalTerminal($onu['lastrx'])).'</td>';
+						$tplresult .= '<td class="mobile">';
+							if($onu['status']==1){
+								$tplresult .= '<span class="on_">'.aftertime($onu['online']).'</span>';
+							}else{
+								$tplresult .= '<span class="off_">'.aftertime($onu['offline']).'</span>';
+							}
+						$tplresult .= '</td>';
+						$tplresult .= '</tr>';
+						}					
+					}
+					$tplresult .= '</table>';
+				}
+			}			
+		}
+		echo $tplresult;exit;
+		break;
+	case 'getuser':	
+		if (isset($_POST['usr'])) {
+			$zapros = (isset($_POST["usr"]) ? str_replace(' ','',Clean::text(trim(strip_tags(stripcslashes($_POST["usr"]))))):null);
+			$usr = str_replace('.', '', $zapros);
+			if ($usr!=false) {
+				$where_onus = "(pib LIKE '%".$usr."%' 
+					OR mobile LIKE '%".$usr."%' OR street LIKE '%".$usr."%' 
+						OR onumac LIKE '%".$usr."%')";
+				$sql_usr = $db->SimpleWhile("SELECT * FROM billing_usr WHERE $where_onus LIMIT 10");
+			if(isset($sql_usr) && count($sql_usr)>0){
+				echo '<ul class="resultpoiskonu">';
+				foreach ($sql_usr as $us) {
+					echo '<li><a href="#" class="select-onu" data-id="' . $us['id'] . '"  data-pib="' . $us['pib'] . '" data-idonu="' . $us['onuid'] . '">';
+					echo'<span>'.$us['onumac'].'</span> ' . $us['pib'] . '';
+					echo'</a></li>';
+				}
+				echo '</ul>';
+			}else{
+				echo'Давай по іншому';
+			}
+			}
+		}
+		die;
+		break;
+	case 'transport':
+		$delet_onu = '';	
+		$idonu = isset($_POST['idonu']) ? Clean::int($_POST['idonu']) : null;
+		if(isset($confPMon['TRANSPORT_ONU']) && !empty($confPMon['TRANSPORT_ONU']) && $confPMon['TRANSPORT_ONU'] == 1) {
+			if(is_valid_id($idonu)){
+				$sql ="SELECT o.id AS onu_id, o.idonu, o.added, i.name AS isp_name, i.logo, i.id as isp_id, i.phone, i.address, i.comment AS isp_comment FROM transport_onu AS o LEFT JOIN transport_isp AS i ON o.isp_id = i.id WHERE o.idonu = {$idonu} LIMIT 1";
+				$transport = $db->Simple($sql);
+				if(!empty($transport['isp_name'])){
+					if($access->get('addmaponu')){
+						$delet_onu = '<a class="panel_house rr_1" style="margin-left:10px;position:relative;top: -3px;" href="/?do=transport&view=delete_onu&id='.$idonu.'">'.$lang['delet'].'</a>';
+					}
+					echo '
+					<div id="pir_speed">
+						<div class="pir_speed">
+								<div class="transport_onu">
+								<div class="transport_logo">
+								<a href="/?do=transport&view=isp&id='.(int)$transport['isp_id'].'">
+								'.(!empty($transport['logo']) ? '<img src="'.$transport['logo'].'" alt="logo" style="display: block;width: 100px;vertical-align: middle;border-radius:6px;">' : '').'
+								
+								</a>
+								</div>
+								<div class="transport_data">
+								<h2>'.$transport['isp_name'].$delet_onu.'</h2>
+								<div class="isp_connetc"><img src="../style/img/uptime.png">'.$transport['added'].'</div>
+								'.$transport['isp_comment'].'
+								</div>
+								</div>
+						</div>
+					</div>
+					';
+				}
+			}
+		}
+		exit;
+		break;
+	case 'savestartpmon':
+		$deviceid = isset($_POST['deviceid']) ? Clean::int($_POST['deviceid']) : null;
+		$intervals = $_POST['interval_custom'] ?? [];
+		$enables = $_POST['enable'] ?? [];
+		$type_schedulers = $_POST['type_scheduler'] ?? [];
+		$daily_times = $_POST['daily_time'] ?? [];
+		$custom_times = $_POST['custom_time'] ?? [];
+		$step = 0;
+		foreach ($intervals as $workid => $interval) {
+			$interval = intval($interval);
+			$status = isset($enables[$workid]) ? 'enabled' : 'disabled';
+			$type_scheduler = isset($type_schedulers[$workid]) ? Clean::text($type_schedulers[$workid]) : 'hourly';
+			$daily_time = isset($daily_times[$workid]) ? Clean::text($daily_times[$workid]) : null;
+			$custom_time = isset($custom_times[$workid]) ? Clean::text($custom_times[$workid]) : null;
+			if ($type_scheduler === 'manual') {
+				$daily_time = 'NULL';
+			} elseif ($type_scheduler === 'daily') {
+				$custom_time = 0;
+				$daily_time = $daily_time ?: '00:00:00';
+			} elseif ($type_scheduler === 'hourly') {
+				$custom_time = 0;
+				$daily_time = '00:00:00';
+			}
+			if ($status === 'enabled') {
+				$sql = "INSERT INTO `taskers` 
+						(`deviceid`, `workid`, `type`, `interval`, `status`, `userid`, `added`, `pmon`, `type_scheduler`, `daily_time`, `custom_time`) 
+						VALUES 
+						('{$deviceid}', '{$workid}', 'monitor', '{$interval}', 
+						'pending', '{$USER['id']}', '{$added}', 'work', '{$type_scheduler}', 
+							'{$daily_time}', '{$custom_time}')";
+				$db->query($sql);
+			}
+		}
+		$go->go('/?do=taskers');
+		exit;
+		break;
+	case 'delete':			
+		$deviceid = isset($_POST['deviceid']) ? Clean::int($_POST['deviceid']) : null;
+		if(is_valid_id($deviceid)){
+			$db->query('DELETE FROM taskers WHERE deviceid = '.$deviceid);
+		}
+		exit;
+		break;
+	case 'updateinterval':			
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$interval = isset($_POST['interval']) ? Clean::int($_POST['interval']) : null;
+		if(is_valid_id($id) && is_valid_id($interval) && $interval > 50){
+			$sql= "UPDATE taskers  SET `interval` = '{$interval}' WHERE id = '{$id}'";
+			$db->query($sql);
+		}
+		$go->go('/?do=taskers');		
+		exit;		
+		break;	
+	case 'signalpon':			
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		if(is_valid_id($id)){
+			$switch = $db->Simple("SELECT id, oidid, place FROM switch WHERE id = '{$id}' LIMIT 1");
+			$get_pon = get_pon_sfp($switch['id']);
+			$oidid = $switch['oidid'];
+			if ($oidid == 14) {
+				$temp_pon[$switch['id']] = processSignalData('epon', $switch['id']);        
+				$temp_pon[$switch['id']] = processSignalData('gpon', $switch['id']);
+			} else {
+				$temp_pon[$switch['id']] = processSignalData('pon', $switch['id']);
+			}
+			if(!empty($temp_pon)){
+				echo'<table class="signal_sfp">';
+				if ($oidid == 15) {
+					if(isset($temp_pon[$switch['id']]['pon'])){
+						foreach($temp_pon[$switch['id']]['pon'] as $llid => $pon_olt) {
+							if (strpos($pon_olt, '1216') !== false){
+								$llid = $llid + 4;
+							}else{
+								$llid = $llid;
+							}
+							if(isset($temp_pon[$switch['id']]['pon'][$llid])){
+								echo format_sfp($get_pon,$llid,$switch,$temp_pon,'pon');
+							}
+						}
+					}	
+				}elseif ($oidid == 9) {
+					$get_pon = get_pon_sfp_gcom($switch['id']);
+					if(isset($temp_pon[$switch['id']]['pon'])){
+						foreach($temp_pon[$switch['id']]['pon'] as $llid => $pon_olt) {
+							if(isset($temp_pon[$switch['id']]['pon'][$llid])){
+								echo format_sfp($get_pon,$llid,$switch,$temp_pon,'pon');
+							}
+						}
+					}						
+				}elseif ($oidid == 35) {
+					if(isset($temp_pon[$switch['id']]['pon'])){
+						foreach($temp_pon[$switch['id']]['pon'] as $llid => $pon_olt) {
+							if(isset($temp_pon[$switch['id']]['pon'][$llid]) && strlen((string)$llid) >= 7){
+								echo format_sfp($get_pon,$llid,$switch,$temp_pon,'pon');
+							}
+						}
+					}						
+				}elseif ($oidid == 14) {
+					if(isset($temp_pon[$switch['id']]['gpon'])){
+						foreach($temp_pon[$switch['id']]['gpon'] as $llid => $pon_olt) {
+							if(isset($temp_pon[$switch['id']]['gpon'][$llid])){
+								echo format_sfp($get_pon,$llid,$switch,$temp_pon,'gpon');
+							}
+						}
+					}
+				}else{
+					if(isset($temp_pon[$switch['id']]['pon'])){
+						foreach($temp_pon[$switch['id']]['pon'] as $llid => $pon_olt) {
+							if(isset($temp_pon[$switch['id']]['pon'][$llid])){
+								echo format_sfp($get_pon,$llid,$switch,$temp_pon,'pon');
+							}
+						}
+					}	
+				}
+				echo'</table>';
+			}
+		}
+		exit;		
+		break;
+	case 'getinterval':		
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		if(is_valid_id($id)){
+		$taskers = $db->Simple("SELECT * FROM taskers WHERE id = '{$id}' LIMIT 1");
+		echo'<form action="/?do=core" method="post" id="formadd">
+			<input name="id" type="hidden" value="'.$id.'">
+			<input name="act" type="hidden" value="updateinterval">';
+		echo form(['name'=>'Interval','descr'=>'1-72000','pole'=>'<input autocomplete="off" required name="interval" class="input1" type="text" value="'.$taskers['interval'].'">']);
+		echo form(['name'=>$lang['opis'],'descr'=>'','pole'=>$lang['taskers_'.$taskers['workid']]]);
+		echo'</form>
+		<div class="polebtn block-flex">		
+			<button type="button" class="closePopup color-b">'.$lang['close'].'</button>
+			<button type="submit" form="formadd" value="submit">'.$lang['update'].'</button>
+		</div>';
+		}
+		exit;		
+		break;
+	case 'startpmon':
+    $deviceid = isset($_GET['deviceid']) ? Clean::int($_GET['deviceid']) : null;
+    if(is_valid_id($deviceid)){
+        $switch = $db->Simple("SELECT place,model,inf,id,oidid FROM switch WHERE id = '{$deviceid}' LIMIT 1");
+        echo '<form action="/?do=core" method="post" id="formadd">
+                <input name="act" type="hidden" value="savestartpmon">
+                <input name="deviceid" type="hidden" value="'.$deviceid.'">';
+        echo '<div class="us_online">';
+        echo '<table>';
+        echo '<tr><td class="taskers_td_name" colspan="3">'.$switch['place'].'</td></tr>';
+        echo '<tr><td class="taskers_td">On/Off</td><td class="taskers_td">Name</td><td class="taskers_td">Scheduler Type</td></tr>';
+        
+        foreach ($global_workids[$switch['oidid']] as $idworker => $tasks) {
+            echo '<tr>';
+            echo '<td style="width: 40px;text-align: center;">
+                    <input type="checkbox" name="enable['.$idworker.']" value="1">
+                  </td>';
+            echo '<td>'.$lang['taskers_'.$idworker].'</td>';
+            echo '<td>
+                    <select name="type_scheduler['.$idworker.']" class="type_scheduler">
+                        <option value="none">None</option>
+                        <option value="hourly">Hourly</option>
+                        <option value="daily">Daily</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                  </td>';
+            echo '</tr>';
+            echo '<tr class="scheduler_options" id="daily_option_'.$idworker.'" style="display:none;">
+                    <td colspan="4">
+                        <input type="time" name="daily_time['.$idworker.']" />
+                    </td>
+                  </tr>';
+            echo '<tr class="scheduler_options" id="hourly_option_'.$idworker.'" style="display:none;">
+                    <td colspan="4">
+                        <input type="datetime-local" name="custom_time['.$idworker.']" />
+                    </td>
+                  </tr>';
+            echo '<tr class="scheduler_options" id="custom_option_'.$idworker.'" style="display:none;">
+                    <td colspan="4">
+                        <div class="select_time" style="margin-top: 10px;">
+                            <span onclick="sendSec(300)">5min</span>
+                            <span onclick="sendSec(900)">15min</span>
+                            <span onclick="sendSec(1800)">30min</span>
+                            <span onclick="sendSec(2700)">45min</span>
+                            <span onclick="sendSec(3600)">1hour</span>
+                            <span onclick="sendSec(7200)">2hour</span>
+                            <span onclick="sendSec(10800)">3hour</span>
+                        </div>
+                        <input type="number" name="interval_custom['.$idworker.']" min="60" max="72000" step="10" value="300" />
+                    </td>
+                  </tr>';
+        }
+        echo '</table><br>';
+        echo '<div class="polebtn"><button type="submit" form="formadd">Зберегти</button></div>';
+        echo '</div>';
+        echo '</form>';
+        echo '<script>
+            $(".type_scheduler").on("change", function() {
+                var idworker = $(this).attr("name").replace("type_scheduler[", "").replace("]", "");
+                var value = $(this).val();
+                
+                // Сховати всі додаткові опції
+                $("#daily_option_" + idworker + ", #hourly_option_" + idworker + ", #custom_option_" + idworker).hide();
+                
+                // Показати відповідну опцію
+                if (value === "daily") {
+                    $("#daily_option_" + idworker).show();
+                } else if (value === "hourly") {
+                    $("#hourly_option_" + idworker).show();
+                } else if (value === "manual") {
+                    $("#custom_option_" + idworker).show();
+                }
+            });
+        </script>';
+        exit;
+    }
+		$sqltaskers = $db->SimpleWhile("SELECT id FROM taskers");
+		if (isset($sqltaskers) && count($sqltaskers) > 0) {
+			
+		}else{
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 6, 'ping3', 200, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 14, 'deletduplicat', 3600, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 26, 'traffic', 150, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 19, 'portstats', 60, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 4, 'monitorport', 300, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 35, 'nagios', 300, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 2, 'onusdata', 2000, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 28, 'monitorporterr', 600, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 48, 'reger', 300, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 5, 'telegram', 60, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 16, 'tempdataonu', 1800, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 58, 'signalsfp', 600, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 96, 'fdbonut', 600, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 99, 'killer', 50, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 59, 'clear', 75000, 'pending', 'work')");
+			$db->query("INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `pmon`) VALUES (0, 32, 'new_onu', 120, 'pending', 'work')");
+			echo'ok';
+		}
+		exit;
+		break;
+	case 'checkmaster':
+		$id = isset($_GET['id']) ? Clean::int($_GET['id']) : null;
+		if(is_valid_id($id)){
+			$result = fixTaskIntervals($pdo, $id);
+			header('Content-Type: application/json');
+			echo json_encode($result, JSON_PRETTY_PRINT);
+		}
+		exit;
+		break;
+	case 'portmonitor': 
+		$tplresult = '';
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		if(is_valid_id($id)){
+			$mon_switch = $db->Simple("SELECT place,model,inf,id FROM switch WHERE id = '{$id}' LIMIT 1");
+			$tmp_port = $db->SimpleWhile("SELECT * FROM switch_port WHERE monitor = 'yes' AND deviceid = '{$id}'");
+			foreach($tmp_port as $idport => $port){
+				$tplresult .= '<div class="page_monitor_port">';
+				if($port['operstatus']=='up'){
+					$tplresult .= '<div class="page_monitor_port_time_up">'.aftertime($port['timeup']).'</div>';
+				}else{
+					$tplresult .= '<div class="page_monitor_port_time_down">'.aftertime($port['timedown']).'</div>';	
+				}
+				$tplresult .= '<div class="page_monitor_port_status"><img src="../style/img/'.($port['operstatus']=='down'?'zte0.png':'zte6.png').'"></div>';
+				$tplresult .= '<div class="page_monitor_port_name">'.$port['nameport'].'</div>';
+				$tplresult .= '<div class="page_monitor_port_description">'.$port['descrport'].'</div>';
+				$tplresult .= '</div>';
+			}
+			echo $tplresult;
+		}
+		break;		
+	case 'pausetaskers':		
+			$deviceid = isset($_POST['deviceid']) ? Clean::int($_POST['deviceid']) : null;
+			$workid = isset($_POST['workid']) ? Clean::int($_POST['workid']) : null;
+			if (is_valid_id($workid)) {
+				$sql= "UPDATE taskers  SET `pmon` = 'stop' WHERE id = '{$workid}'";
+				$db->query($sql);
+				echo'ok';
+			}
+			exit;	
+	case 'playtaskers':		
+			$deviceid = isset($_POST['deviceid']) ? Clean::int($_POST['deviceid']) : null;
+			$workid = isset($_POST['workid']) ? Clean::int($_POST['workid']) : null;
+			if (is_valid_id($workid)) {
+				$sql= "UPDATE taskers  SET `pmon` = 'work' WHERE id = '{$workid}'";
+				$db->query($sql);
+				echo'ok';
+			}
+			exit;
+		break;	
+	case 'deletetaskers':		
+			$deviceid = isset($_POST['deviceid']) ? Clean::int($_POST['deviceid']) : null;
+			$workid = isset($_POST['workid']) ? Clean::int($_POST['workid']) : null;
+			if (is_valid_id($workid)) {
+				$db->SQLdelete('taskers',['id' =>$workid]);
+				echo'ok';
+			}
+			exit;
+		break;		
+	case 'savemasters':			
+		$interval = isset($_POST['interval']) ? Clean::int($_POST['interval']) : 600;
+		$selected_switches = isset($_POST['switches']) ? $_POST['switches'] : [];
+		$workid = isset($_POST['task_id']) ? Clean::int($_POST['task_id']) : null;
+		$krok = isset($_POST['krok']) ? Clean::int($_POST['krok']) : null;
+		$start_date = isset($_POST['start_date']) ? Clean::text($_POST['start_date']) : null;
+		if (is_valid_id($workid) && is_valid_id($interval)) {
+			$type = 'monitor';
+			if (!empty($selected_switches)) {
+				$step = 0;
+				foreach ($selected_switches as $switch_id) {
+					$switch_id = (int)$switch_id;
+					if($krok>0){
+						$interval += $step;
+						$step += $krok;
+					}
+					if (is_valid_id($switch_id)) {						
+						$sql = "INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `status`, `userid`, `added`, `pmon`) 
+								VALUES ({$switch_id}, '{$workid}', '{$type}', '{$interval}', 'pending', '{$USER['id']}', '{$added}', 'work')";
+						$db->query($sql);
+						$logger->init([
+							'log'=>'device',
+							'type'=>'taskers',
+							'descr'=>"Add taskers work:{$workid} interval:{$interval}",
+							'deviceid'=>$switch_id,'userid'=>$USER['id'],'username'=>$USER['username']]);
+					}
+				}
+			}
+		}
+		$go->go('/?do=taskers');
+		exit;		
+	break;		
+	case 'savetaskers':	
+		$deviceid = isset($_POST['deviceid']) ? Clean::int($_POST['deviceid']) : null;
+		$interval = isset($_POST['interval']) ? Clean::int($_POST['interval']) : 600;
+		$type_scheduler = isset($_POST['type_scheduler']) ? Clean::text($_POST['type_scheduler']) : 'hourly';
+		$daily_time = isset($_POST['daily_time']) ? Clean::text($_POST['daily_time']) : null;
+		$custom_time = isset($_POST['custom_time']) ? Clean::text($_POST['custom_time']) : null;
+		if($interval < 60){
+			$interval = 120;
+		}
+		if(isset($type_scheduler) && $type_scheduler!=false){
+			if($type_scheduler=='manual'){
+				$type_scheduler = 'manual';
+				$daily_time = 'NULL';
+			}elseif($type_scheduler=='daily'){
+				$type_scheduler = 'daily';
+				$daily_time = "'{$daily_time}'";
+			}elseif($type_scheduler=='hourly'){
+				$type_scheduler = 'hourly';
+				$daily_time = "'00:00'";
+			}
+		}
+		$workid = isset($_POST['workid']) ? Clean::int($_POST['workid']) : null;
+		if (is_valid_id($workid) && is_valid_id($interval)) {
+			$type = is_valid_id($deviceid) ? 'monitor' : 'system';
+			$deviceidValue = is_valid_id($deviceid) ? $deviceid : 'NULL';
+			$sql = "INSERT INTO `taskers` (`deviceid`, `workid`, `type`, `interval`, `type_scheduler`, `daily_time`, `custom_time`, `status`, `userid`, `added`, `pmon`) VALUES ({$deviceidValue}, '{$workid}', '{$type}', '{$interval}', '{$type_scheduler}', {$daily_time}, '{$custom_time}', 'pending', '{$USER['id']}', '{$added}', 'work')";
+			$db->query($sql);
+		}
+		if (is_valid_id($deviceid) && $USER['id']>0) {
+			$logger->init(['log'=>'device','type'=>'taskers','descr'=>"Add taskers work:{$workid} interval:{$interval}",'deviceid'=>$deviceid,'userid'=>$USER['id'],'username'=>$USER['username']]);
+			$go->go('/?do=taskers&id='.$deviceid);
+			exit;
+		}		
+		$go->go('/?do=taskers');
+		break;		
+	case 'masters':		
+			$unique_tasks = [];
+			foreach ($global_workids as $group => $tasks) {
+				if ($group === 'system') {
+					continue;
+				}
+				foreach ($tasks as $task_id => $task_name) {
+					$unique_tasks[$task_id] = $task_name;
+				}
+			}
+			ksort($unique_tasks);
+			$listdevice ='<select name="task_id" id="task_select" style="font-size: 11px;">
+            <option value="">-- Select Task --</option>';
+            foreach ($unique_tasks as $task_id => $task_name){
+                $listdevice .='<option value="'.$task_id.'">'.$lang['taskers_'.$task_id].'</option>';
+            }
+			$listdevice .='</select>';
+			okno_title('Masters');
+			?>
+			<script>
+				$('#task_select').on('change', function() {
+					var task_select = $(this).val();
+					$.post('/?do=core&act=selectswitch', {task_select: task_select }, function(response) {
+						$('#get_list_switch').html(response);
+					}, 'html');
+				});
+			</script>
+			<?php
+			echo '<form action="/?do=core" method="post" id="formadd">
+				<input name="act" type="hidden" value="savemasters">
+				' . form(['name' => 'Task', 'descr' => 'The type of task that should be operational', 'pole' => $listdevice]) . '
+			<div id="get_list_switch"></div>
+			</form></div>';
+			okno_end();  
+		break;		
+	case 'selectswitch':		
+		$task_select = isset($_POST['task_select']) ? Clean::int($_POST['task_select']) : null;
+		if (is_valid_id($task_select)) {
+			$oidswitch = $db->SimpleWhile("SELECT oidid, id, place, inf, model FROM switch WHERE monitor = 'yes'");
+			$array_switch = [];
+			foreach ($oidswitch as $switch) {
+				$array_switch[$switch['oidid']][] = $switch;
+			}
+			$switches = [];
+			foreach ($global_workids as $group => $tasks) {
+				if ($group === 'system') {
+					continue;
+				}
+				if (isset($tasks[$task_select])) {
+					if (isset($array_switch[$group])) {
+						foreach ($array_switch[$group] as $switch) {
+							$switches[] = [
+								'id' => $switch['id'],
+								'place' => $switch['place']
+							];
+						}
+					}
+				}
+			}
+			$output = '';
+			foreach ($switches as $switch) {
+				$disabled = '';
+				$taskLabel = '';
+				$switch_task = $db->Simple("SELECT * FROM taskers WHERE deviceid = '{$switch['id']}' AND workid = '{$task_select}'");
+				if(!empty($switch_task['id'])){
+					$disabled = 'disabled';
+					$taskLabel = ' <font color="green">Active</font> <span class="signal3">'.$switch_task['interval'].'s</span>';
+				}
+				$output .= '<input type="checkbox" name="switches[]" value="' . $switch['id'] . '" '.$disabled.'>' . $switch['place'] . ''.$taskLabel.'<br>';
+			}
+			echo form(['name' => 'Interval', 'descr' => 'The time interval in seconds at which the command will be triggered', 'pole' => '
+			<div class="select_time">
+				<span onclick="sendSec(300)">5min</span>
+				<span onclick="sendSec(900)">15min</span>
+				<span onclick="sendSec(1800)">30min</span>
+				<span onclick="sendSec(2700)">45min</span>
+				<span onclick="sendSec(3600)">60min</span>
+				<span onclick="sendSec(7200)">2hour</span>
+			</div>
+			<input type="number" name="interval" min="60" max="72000" step="10" value="300"/>']);
+			echo form(['name' => 'Step', 'descr' => 'The step by which the interval is increased', 'pole' => '<input type="number" name="krok" min="60" max="600" step="10" value="100"/>']);
+			//echo form(['name' => 'Start date', 'descr' => 'The date from which the script starts executing', 'pole' => '<input type="datetime-local" name="start_date" value="'.date('Y-m-d H:i:s').'" min="'.date('Y-m-d 00:00:00').'" max="'.date('Y-m-d 23:59:59').'" />']);
+			echo '<br><div class="list-options">'.$output.'</div>';
+			echo '</form><div class="polebtn"><button type="submit" form="formadd" value="submit">'.$lang['save'].'</button></div>';
+		}
+		exit;		
+	case 'savesystemtaskers':		
+		$interval = isset($_POST['interval']) ? Clean::int($_POST['interval']) : 600;
+		if($interval < 60){
+			$interval = 120;
+		}
+		$workid = isset($_POST['workid']) ? Clean::int($_POST['workid']) : null;
+		if (is_valid_id($workid) && is_valid_id($interval)) {
+			$sql = "INSERT INTO `taskers` (`workid`, `type`, `interval`, `status`, `userid`, `added`, `pmon`) VALUES ('{$workid}', 'system', '{$interval}', 'pending', '{$USER['id']}', '{$added}', 'work')";
+			$db->query($sql);
+			$go->go('/?do=taskers&id=system');
+			exit;
+		}		
+		$go->go('/?do=taskers');
+		exit;
+		break;	
+	case 'addtaskers':
+		$deviceid = isset($_GET['deviceid']) ? Clean::int($_GET['deviceid']) : null;
+		if (is_valid_id($deviceid) && $deviceid > 0) {
+			$switch = $db->Simple("SELECT id, inf, place, model, oidid FROM switch WHERE id = " . $deviceid);
+			$selectedWorkids = isset($global_workids[$switch['oidid']]) ? $global_workids[$switch['oidid']] : [];
+			$taskCheckQuery = "SELECT * FROM taskers WHERE deviceid = " . $deviceid . " GROUP BY workid";
+			$tasks = $db->SimpleWhile($taskCheckQuery);
+			$taskCounts = [];
+			foreach ($tasks as $task) {
+				$taskCounts[$task['workid']] = $task['interval'];
+			}
+			okno_title('Taskers');
+			echo '<form action="/?do=core" method="post" id="formadd"><input name="act" type="hidden" value="savetaskers"><input name="deviceid" type="hidden" value="'.$deviceid.'">';
+			echo form(['name' => 'Назва', 'descr' => 'Короткий опис', 'pole' => $switch['place']]);
+			echo form(['name' => 'Модель', 'descr' => 'Опис виробника', 'pole' => '<font color="#222">'.$switch['inf'].' '.$switch['model'].'</font>']);
+			echo form(['name' => 'Scheduler Type', 'descr' => 'Select when the task should run', 'pole' => '<select name="type_scheduler" id="type_scheduler">
+				<option value="none"></option>
+				<option value="hourly">'.$lang['taskers_hourly'].'</option>
+				<option value="daily">'.$lang['taskers_one_day'].'</option>
+				<option value="manual">'.$lang['taskers_one_manual'].'</option>
+			</select>']);
+			echo '<script>
+            $("#type_scheduler").on("change", function() {
+                var value = $(this).val();
+                $("#daily_option, #custom_option, #hourly_option").hide();
+                if (value === "daily") {
+                    $("#daily_option").show();
+                } else if (value === "hourly") {
+					$("#hourly_option").show();
+                } else if (value === "manual") {
+                    $("#custom_option").show();
+                }
+            });
+			</script>';			
+			echo '<div id="scheduler_options">
+				<div id="daily_option" style="display:none;">
+					' . form(['name' => 'Daily Time', 'descr' => 'Specify the time for daily tasks', 'pole' => '<input type="time" name="daily_time" />']) . '
+				</div>
+				<div id="hourly_option" style="display:none;">
+					' .form(['name' => 'Custom Start Time', 'descr' => 'Specify the custom start time', 'pole' => '<input type="datetime-local" name="custom_time" />']). '
+				</div>
+				<div id="custom_option" style="display:none;">
+				<div class="select_time" style="margin-top: 10px;">
+					<span onclick="sendSec(300)">5min</span>
+					<span onclick="sendSec(900)">15min</span>
+					<span onclick="sendSec(1800)">30min</span>
+					<span onclick="sendSec(2700)">45min</span>
+					<span onclick="sendSec(3600)">1hour</span>
+					<span onclick="sendSec(7200)">2hour</span>
+					<span onclick="sendSec(10800)">3hour</span>
+				</div>
+					' . form(['name' => 'Interval', 'descr' => 'The time interval in seconds at which the command will be triggered', 'pole' => '<input type="number" name="interval" min="60" max="72000" step="10" value="300" />']) . '
+				</div>
+			</div>';
+			echo '<div><label>Тип задачі:</label><div class="list-options">';
+			foreach ($selectedWorkids as $workid => $description) {
+				$isTaskActive = isset($taskCounts[$workid]) ? true : false;
+				$taskLabel = $lang['taskers_'.$workid];         
+				if ($isTaskActive) {
+					$taskLabel .= ' <font color="green">Active</font> <span class="signal3">'.$taskCounts[$workid].'s</span>';
+					$disabled = 'disabled';
+				} else {
+					$disabled = '';
+				}
+				echo '<input type="radio" name="workid" value="'.$workid.'" id="workid'.$workid.'" '.$disabled.'> 
+					  <label for="workid'.$workid.'">'.$taskLabel.'</label><br>';
+			}
+			echo '</div>';
+			echo '</div>';
+			echo '</form><div class="polebtn"><button type="submit" form="formadd" value="submit">'.$lang['save'].'</button></div>';
+			okno_end();  
+		}else{
+			$taskCheckQuery = "SELECT * FROM taskers WHERE deviceid IS NULL OR deviceid = '0';";
+			$tasks = $db->SimpleWhile($taskCheckQuery);
+			$taskCounts = [];
+			foreach ($tasks as $task) {
+				$taskCounts[$task['workid']] = $task['interval'];
+			}
+			okno_title('Taskers');			
+			echo '<form action="/?do=core" method="post" id="formadd"><input name="act" type="hidden" value="savesystemtaskers">';
+			echo form(['name' => 'Worker', 'descr' => 'Час при якому буде спрацьовувати', 'pole' => '
+			<div class="select_time">
+				<span onclick="sendSec(300)">5min</span>
+				<span onclick="sendSec(900)">15min</span>
+				<span onclick="sendSec(1800)">30min</span>
+				<span onclick="sendSec(2700)">45min</span>
+				<span onclick="sendSec(3600)">1hour</span>
+				<span onclick="sendSec(7200)">2hour</span>
+				<span onclick="sendSec(10800)">3hour</span>
+			</div>
+			<input type="number" name="interval" min="60" max="72000" step="10" value="300"/>']);
+			echo '<div><label>Тип задачі:</label><div class="list-options">';
+			foreach ($global_workids['system'] as $workid => $taskers) {
+				$isTaskActive = isset($taskCounts[$workid]) ? true : false;
+				$taskLabel = $lang['taskers_'.$workid];         
+				if ($isTaskActive) {
+					$taskLabel .= ' <font color="green">Active</font> <span class="signal3">'.$taskCounts[$workid].'s</span>';
+					$disabled = 'disabled';
+				} else {
+					$disabled = '';
+				}
+				echo '<input type="radio" name="workid" value="'.$workid.'" id="workid'.$workid.'" '.$disabled.'> 
+					  <label for="workid'.$workid.'">'.$taskLabel.'</label><br>';
+			}
+			echo '</div>';
+			echo '</div>';
+			echo '</form><div class="polebtn"><button type="submit" form="formadd" value="submit">'.$lang['save'].'</button></div>';
+			okno_end();  			
+		}
+		exit;
+		break;	
+	case 'treesignal':			
+		$tree = isset($_GET['tree']) ? Clean::int($_GET['tree']) : null;
+		$last_month_date = date('Y-m-d', strtotime('-1 month'));
+		if(is_valid_id($tree)){	
+			$sqlonus = $db->SimpleWhile("SELECT * FROM onusdata WHERE pontree = " . $tree);
+			if (isset($sqlonus) && count($sqlonus) > 0) {
+				$onukeys = array_map(function ($ont) {
+					return "'" . $ont['onukey'] . "'";
+				}, $sqlonus);
+				$onukeys = array_unique($onukeys);
+				$id_onu = $db->SimpleWhile("SELECT idonu, inface, mac, sn FROM onus	WHERE mac IN (" . implode(',', $onukeys) . ") OR sn IN (" . implode(',', $onukeys) . ")");
+				$sql_where = [];
+				foreach ($id_onu as $ont) {
+					$sql_where[] = $ont['idonu'];
+					$temp_inface[$ont['idonu']]['idonu'] = $ont['idonu'];
+					$temp_inface[$ont['idonu']]['inface'] = $ont['inface'];
+					$temp_inface[$ont['idonu']]['mac'] = (isset($ont['mac']) ? $ont['mac'] : $ont['sn']);
+				}
+				if (!empty($sql_where)) {
+					$ids = implode(",", $sql_where);
+					$signals = $db->SimpleWhile("SELECT * FROM `historysignal` WHERE onu IN ($ids) AND datetime >= '{$last_month_date}' ORDER BY datetime ");
+				} else {
+					$signals = [];
+				}
+				$js_array_full = [];
+				foreach ($signals as $row) {
+					if(floatval($row['signal']) > -33) {
+						if(floatval($row['signal']) < -14) {
+							$js_array_full[$row['onu']][] = [
+								'signal' => floatval($row['signal']),'idonu' => $temp_inface[$row['onu']]['idonu'],'mac' => $temp_inface[$row['onu']]['mac'],'inface' => $temp_inface[$row['onu']]['inface'],'datetime' => $row['datetime']
+							];
+						}
+					}
+				}
+				header('Content-Type: application/json');
+				echo json_encode($js_array_full, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);	
+				exit;
+			}
+		}
+		break;	
+	case 'find_problem_ports':
+		$sw = $db->SimpleWhile("Select place, id FROM switch WHERE device = 'olt' AND monitor = 'yes'");
+		$list_switch = [];
+		foreach ($sw as $s) {
+			$list_switch[$s['id']]['place'] = $s['place'];
+		}		
+		$swport = $db->SimpleWhile("SELECT id, oltid, pon, sfpid FROM switch_pon");
+		$list_switch_port = [];
+		foreach ($swport as $pon) {
+			$list_switch_port[$pon['oltid']][$pon['sfpid']] = [
+				'id'   => $pon['id'],
+				'name' => $pon['pon']
+			];
+		}
+		$interval_days = 7;
+		$threshold_db  = 1.5;
+		$sql = "
+			SELECT 
+				o.olt,
+				o.portolt,
+				COUNT(*) AS bad_onu_count
+			FROM onus AS o
+			JOIN (
+				SELECT 
+					onu,
+					MAX(`signal`) AS maxsig,
+					MIN(`signal`) AS minsig
+				FROM historysignal
+				WHERE datetime >= NOW() - INTERVAL {$interval_days} DAY
+				  AND `signal` BETWEEN -39 AND -10
+				GROUP BY onu
+				HAVING ROUND(minsig - maxsig, 2) > {$threshold_db}
+			) AS agg ON agg.onu = o.idonu
+			WHERE o.status = '1'
+			GROUP BY o.olt, o.portolt
+			ORDER BY bad_onu_count DESC
+		";
+		$rows = $db->SimpleWhile($sql);
+		$ports_to_check = [];
+		foreach ($rows as $r) {
+			if($r['bad_onu_count']>20){
+				$ports_to_check[$r['olt']][] = $r['portolt'];
+			}
+		}
+		echo "<pre>";
+		echo "Порти, на яких відбувається масова деградація сигналів (>={$threshold_db} dB за {$interval_days} днів):\n";
+		echo "=======================================================================\n\n";
+		if (empty($ports_to_check)) {
+			echo "Портів з проблемами не виявлено.\n";
+		} else {
+			foreach ($ports_to_check as $olt => $ports) {
+				echo "{$list_switch[$olt]['place']}: ";
+				#list_switch_port
+				foreach ($ports as $pon) {
+					if(!empty($list_switch_port[$olt][$pon]['id'])){
+						echo "<a href='/?do=core&act=ai&olt={$olt}&portolt={$pon}'>".$list_switch_port[$olt][$pon]['name']."</a>";
+					}
+				}
+				echo"\n";
+			}
+		}
+		echo "</pre>";
+		exit;
+    break;		
+	case 'ai2': 		
+		$olt = intval($_GET['olt']);
+		$portolt = intval($_GET['portolt']);
+		$sql = "SELECT idonu, inface, mac, sn FROM onus WHERE olt = '{$olt}' AND portolt = '{$portolt}' AND status = '1'";
+		$id_onu = $db->SimpleWhile($sql);
+		$sql_where = [];
+		$temp_inface = [];
+		foreach ($id_onu as $ont) {
+			$onukey = $ont['mac'] ?: $ont['sn'];
+			$sqlonus = $db->Simple("SELECT pontree,ponelement,lan,lon FROM onusdata WHERE onukey = '" . $onukey."' LIMIT 1");
+			$sqlpon = $db->Simple("SELECT * FROM ponelement WHERE id = '" . $sqlonus['ponelement']."' LIMIT 1");
+			$sql_where[] = $ont['idonu'];
+			$temp_inface[$ont['idonu']] = [
+				'idonu' => $ont['idonu'],
+				'inface' => $ont['inface'],
+				'ponname' => $sqlpon['name'] ?? '',
+				'pontree' => $sqlonus['pontree'] ?? '',
+				'ponelemet' => $sqlonus['ponelement'] ?? '',
+				'mac' => $onukey
+			];
+		}
+		$ids = implode(",", $sql_where);
+		$signals = $db->SimpleWhile("
+			SELECT * FROM `historysignal` 
+			WHERE onu IN ($ids) 
+			  AND datetime >= NOW() - INTERVAL 7 DAY 
+			ORDER BY onu, datetime ASC
+		");
+		$signal_history = [];
+		foreach ($signals as $row) {
+			$signal = floatval($row['signal']);
+			if ($signal > -39 && $signal < -10) {
+				$signal_history[$row['onu']][] = [
+					'datetime' => $row['datetime'],'signal' => $signal
+				];
+			}
+		}
+		$worsening_report = [];
+		foreach($signal_history as $onu_id => $entries){
+			$prev = null;
+			$trend = 0;
+			$worsening_sequence = [];
+			foreach ($entries as $entry) {
+				if ($prev !== null) {
+					if ($entry['signal'] < $prev['signal']) {
+						$trend++;
+						$worsening_sequence[] = $entry;
+					} else {
+						$trend = 0;
+						$worsening_sequence = [];
+					}
+					if ($trend >= 3) {
+						$first_signal = $worsening_sequence[0]['signal'];
+						$last_signal = end($worsening_sequence)['signal'];
+						$diff_db = round($last_signal - $first_signal, 2);
+						if ($diff_db <= -0.5) {
+							$worsening_report[$onu_id] = [
+								'idonu' => $temp_inface[$onu_id]['idonu'],
+								'mac' => $temp_inface[$onu_id]['mac'],
+								'inface' => $temp_inface[$onu_id]['inface'],
+								'ponname' => $temp_inface[$onu_id]['ponname'],
+								'ponelemet' => $temp_inface[$onu_id]['ponelemet'],
+								'pontree' => $temp_inface[$onu_id]['pontree'],
+								'trend' => $worsening_sequence,
+								'delta_db' => $diff_db,
+								'description' => "Погіршення на $diff_db dB"
+							];
+						}
+						break;
+					}
+				} else {
+					$worsening_sequence[] = $entry;
+				}
+				$prev = $entry;
+			}
+		}
+		echo "<pre>";
+		echo "Звіт про погіршення сигналу за останні 7 днів\n";
+		echo "=============================================\n\n";
+		foreach ($worsening_report as $onu) {
+			echo "ONU ID: {$onu['idonu']}\n";
+			echo "MAC/SN: {$onu['mac']}\n";
+			if($onu['ponname']){
+				echo "Пон бокс: {$onu['ponname']}\n";
+				echo "Пон дерево: {$onu['pontree']}\n";
+			}
+			echo "Інтерфейс: {$onu['inface']}\n";
+			echo "Погіршення: {$onu['delta_db']} dB\n";
+			echo "Сигнали:\n";
+			foreach ($onu['trend'] as $entry) {
+				echo "  - {$entry['datetime']} → {$entry['signal']} dB\n";
+			}
+			echo "---------------------------------------------\n";
+		}
+		if (empty($worsening_report)) {
+			echo "Погіршень сигналу не виявлено.\n";
+		}
+		echo "</pre>";
+		exit;
+		break;		
+	case 'ai':
+		$olt     = intval($_GET['olt']);
+		$portolt = intval($_GET['portolt']);
+		$sql = "
+			SELECT 
+				o.idonu,
+				o.inface,
+				COALESCE(o.mac, o.sn)     AS onukey,
+				od.pontree                AS pontree_id,
+				od.ponelement             AS ponelem_id,
+				pe.name                   AS ponname,
+				pt.name                   AS treename
+			FROM onus AS o
+			LEFT JOIN onusdata   AS od ON od.onukey    = COALESCE(o.mac, o.sn)
+			LEFT JOIN ponelement AS pe ON pe.id        = od.ponelement
+			LEFT JOIN pontree    AS pt ON pt.id        = od.pontree
+			WHERE o.olt     = '{$olt}'
+			  AND o.portolt = '{$portolt}'
+			  AND o.status  = '1'
+		";
+		$meta = $db->SimpleWhile($sql);
+		$onu_ids      = [];
+		$temp_inface  = [];
+		foreach ($meta as $r) {
+			$onu_ids[] = $r['idonu'];
+			$temp_inface[$r['idonu']] = [
+				'idonu'    => $r['idonu'],
+				'inface'   => $r['inface'],
+				'mac'      => $r['onukey'],
+				'ponname'  => $r['ponname']   ?? '',
+				'treename' => $r['treename']  ?? ''
+			];
+		}
+		if (empty($onu_ids)) {
+			exit('<pre>Немає активних ONU для цього порту.</pre>');
+		}
+		$ids     = implode(',', $onu_ids);
+		$signals = $db->SimpleWhile("
+			SELECT onu, datetime, `signal`
+			FROM historysignal
+			WHERE onu IN ({$ids})
+			  AND datetime >= NOW() - INTERVAL 7 DAY
+			ORDER BY onu, datetime ASC
+		");
+		$signal_history = [];
+		foreach ($signals as $row) {
+			$sig = floatval($row['signal']);
+			if ($sig > -39 && $sig < -10) {
+				$signal_history[$row['onu']][] = [
+					'datetime' => $row['datetime'],'signal'   => $sig
+				];
+			}
+		}
+		$worsening_report = [];
+		foreach ($signal_history as $onu_id => $entries) {
+			$prev   = null;
+			$trend  = 0;
+			$seq    = [];
+			foreach ($entries as $ent) {
+				if ($prev !== null && $ent['signal'] < $prev['signal']) {
+					$trend++;
+					$seq[] = $ent;
+				} else {
+					$trend = 0;
+					$seq   = [$ent];
+				}
+				if ($trend >= 2) {
+					$first  = $seq[0]['signal'];
+					$last   = end($seq)['signal'];
+					$diff   = round($last - $first, 2);
+					if ($diff <= -0.5) {
+						$tmp = $temp_inface[$onu_id];
+						$worsening_report[$onu_id] = [
+							'idonu'       => $tmp['idonu'],
+							'mac'         => $tmp['mac'],
+							'inface'      => $tmp['inface'],
+							'ponname'     => $tmp['ponname'],
+							'treename'    => $tmp['treename'],
+							'trend'       => $seq,
+							'delta_db'    => $diff,
+							'description' => "Погіршення на {$diff} dB"
+						];
+					}
+					break;
+				}
+				$prev = $ent;
+			}
+		}
+		echo "<pre>";
+		echo "Звіт про погіршення сигналу за останні 7 днів\n";
+		echo "=============================================\n\n";
+		if (empty($worsening_report)) {
+			echo "Погіршень сигналу не виявлено.\n";
+		} else {
+			foreach ($worsening_report as $onu) {
+				echo "ONU ID: {$onu['idonu']}  |  MAC: {$onu['mac']}  |  Інтерфейс: {$onu['inface']}\n";
+				if ($onu['treename'] || $onu['ponname']) {
+					echo "PON дерево: {$onu['treename']}  |  Бокс: {$onu['ponname']}\n";
+				}
+				echo "Погіршення: {$onu['delta_db']} dB\n";
+				echo "Сигнали в послідовності:\n";
+				foreach ($onu['trend'] as $e) {
+					echo "  - {$e['datetime']} → {$e['signal']} dB\n";
+				}
+				echo "---------------------------------------------\n";
+			}
+		}
+		echo "</pre>";
+		exit;
+		break;
+		
+	case 'ponsignal': 		
+		$portolt = isset($_GET['portolt']) ? Clean::int($_GET['portolt']) : null;
+		$olt = isset($_GET['olt']) ? Clean::int($_GET['olt']) : null;
+		if(is_valid_id($portolt)){
+			$temp_inface = [];
+			$sql = "SELECT idonu,inface,mac,sn FROM onus WHERE olt = '{$olt}' AND portolt = '{$portolt}' AND status = '1'";
+			$id_onu = $db->SimpleWhile($sql);
+			$sql_where = [];
+			foreach ($id_onu as $ont) {
+				$sql_where[] = $ont['idonu'];
+				$temp_inface[$ont['idonu']]['idonu'] = $ont['idonu'];
+				$temp_inface[$ont['idonu']]['inface'] = $ont['inface'];
+				$temp_inface[$ont['idonu']]['mac'] = (isset($ont['mac']) ? $ont['mac'] : $ont['sn']);
+			}
+			if (!empty($sql_where)) {
+				$ids = implode(",", $sql_where);
+				$signals = $db->SimpleWhile("SELECT * FROM `historysignal` WHERE onu IN ($ids) ORDER BY datetime ASC LIMIT 10000");
+			} else {
+				$signals = [];
+			}			
+			$js_array_full = [];
+			foreach ($signals as $row) {
+				if(floatval($row['signal']) > -33) {
+					if(floatval($row['signal']) < -10) {
+						$js_array_full[$row['onu']][] = [
+							'idonu' => $temp_inface[$row['onu']]['idonu'],
+							'signal' => floatval($row['signal']),
+							'mac' => $temp_inface[$row['onu']]['mac'],
+							'inface' => $temp_inface[$row['onu']]['inface'],
+							'datetime' => $row['datetime']
+						];
+					}
+				}
+			}
+			header('Content-Type: application/json');
+			echo json_encode($js_array_full, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);	
+			exit;
+		}
+		break;		
+	case 'oltsignal': 
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$signals = array();
+		$counts = array();
+		if(is_valid_id($id)){
+			$sql_data = ['sql' => "SELECT rx, status FROM onus WHERE status = '1' AND olt = '{$id}'",'key' => 'main_char_signal_'.$id,'type' => 'while','time' => 1200];
+			$getallrx = cache_simple_sql($sql_data);
+			if(isset($getallrx) && count($getallrx)>3){
+				foreach($getallrx as $item) {
+					$rx = str_replace("-","",intval($item['rx']));
+					if ($rx != 0 && $item['status'] == 1) {
+						if (array_key_exists($rx,$signals)) {
+							$counts[$rx]++;
+						} else {
+							$signals[$rx] = $item;
+							$counts[$rx] = 1;
+						}
+					}
+				}
+				if(is_array($signals)){
+					if(isset($counts) && count($counts)>=5){
+						$count = count($counts);
+						if ($count <= 5) {
+							$with =  intval(30/count($counts));
+						} elseif ($count > 5 && $count < 10) {
+							$with =  intval(60/count($counts));		
+						} elseif ($count >= 10 && $count <= 14) {
+							$with =  intval(80/count($counts));		
+						} else {
+							$with = intval(150 / $count);
+						}
+					$maxvalue = max($counts);
+					asort($signals);
+					$chart_data = [];
+					foreach ($signals as $rxs => $signal) {
+						$minbad = (!empty($config['badsignalstart']) ? $config['badsignalstart'] : 26);
+						$maxbad = (!empty($config['badsignalend']) ? $config['badsignalend'] : 31);
+						if ($rxs < 15) {
+							$color = '#fdb910';
+						} elseif ($rxs < 18 && $rxs < $minbad) {
+							$color = '#339fff';
+						} elseif ($rxs < $minbad) {
+							$color = '#08bf1c';
+						} elseif ($rxs >= $minbad && $rxs < $maxbad) {
+							$color = 'red';
+						} else {
+							$color = 'red';
+						}
+						$chart_data[] = ['signal' => '-'.$rxs,'count' => $counts[$rxs],'color' => $color];
+					}
+					}	
+				}
+			}
+			if(isset($getallrx) && count($getallrx)>3){
+			$data_json = json_encode($chart_data);
+			echo charts_olt_signal($data_json,$id);
+			}
+		}
+		break;
+	case 'showdaynew': 
+		$day = isset($_GET['day']) ? Clean::int($_GET['day']) : null;
+		if ($day !== null && $day > 0) {
+			$date = date('Y-m-').$day;
+			$startDate = $date . " 00:00:00";
+			$endDate = $date . " 23:59:59";
+			$query = "
+				SELECT 
+					o.inface, o.type, o.idonu, o.added, o.online, o.offline, 
+					o.status, o.mac, o.sn, o.rx, o.dist, o.olt, o.rxstatus, 
+					s.place, s.id AS switch_id 
+				FROM onus o
+				JOIN switch s ON s.id = o.olt
+				WHERE o.added BETWEEN :startDate AND :endDate
+			";
+			$stmt = $pdo->prepare($query);
+			$stmt->execute([
+				'startDate' => $startDate,
+				'endDate' => $endDate
+			]);
+			$data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			$tplresult = '<table class="pmon-tab-lite"><thead><tr>
+				<th width="5%">'.$lang['status'].'</th>
+				<th width="15%">OLT</th>
+				<th>Mac Sn</th>
+				<th width="10%">'.$lang['inface'].'</th>
+				<th width="8%">'.$lang['dist'].'</th>
+				<th width="8%">'.$lang['signal'].'</th>
+				<th class="mobile" width="15%">
+					<span class="inf_status">
+						<span class="tim1">'.$lang['online'].'</span>
+						<span class="tim2">'.$lang['offline'].'</span>
+					</span>
+				</th>
+				</tr></thead><tbody>';	
+			if(isset($data) && $data!=false){
+			foreach($data as $ontid => $onu){
+					$onukey = (!empty($onu['mac'])?$onu['mac']:(!empty($onu['sn'])?$onu['sn']:'n/a'));
+					$onuname = (!empty($onu['name'])? '<span class="bad_name_onu">'.$onu['name'].'</span>':'');
+					$tplresult .= '<tr>
+					<td><span class="statusonu st_'.$onu['status'].'"</span></td>
+					<td class="td_place"><a href="/?do=detail&act=olt&id='.$onu['olt'].'">'.$onu['place'].'</a></td>
+					<td class="td_onu">
+					<a href="/?do=onu&id='.$onu['idonu'].'">'.($onu['status']==2?'<font color="grey">':'').''.$onukey.' '.$onuname.'</a>
+					<span class=\'copy\' onclick="enableCopyOnClick(\''.$onukey.'\')"><img src=\'../style/img/copy.png\'></span>
+					</td>
+					<td class="td_inface">'.strtoupper($onu['type']).' '.$onu['inface'].'</td>
+					<td class="td_dist">'.($onu['dist'] ? metersToKilometers($onu['dist']) : '').'</td>';
+					$ex_ono = '';
+					if(isset($onu['rx']) && $onu['rx']!=false){
+						$ex_ono = signalTerminal($onu['rx']).($onu['rxstatus']=='up' || $onu['rxstatus']=='down' ? '<span class="signaldown"><i class="fi fi-rr-angle-small-'.$onu['rxstatus'].'"></i></span>':'');
+					}
+					$tplresult .= '<td class="bad_list">'.($onu['status']==2?'':$ex_ono).'</td>';
+					$tplresult .= '<td class="mobile">';
+						if($onu['status']==1){
+							$tplresult .= '<span class="on_">'.aftertime($onu['online']).'</span>';
+						}else{
+							$tplresult .= '<span class="off_">'.aftertime($onu['offline']).'</span>';
+						}
+					$tplresult .= '</td>';
+					$tplresult .= '</tr>';
+				}
+			}else{
+				$tplresult .= '<tr><td colspan="9">'.$lang['empty'].'</td></tr>';
+			}
+			$tplresult .= '</table>';
+			echo $tplresult;
+		} else {
+			echo json_encode(['error' => 'Невірна дата']);
+		}
+		break;	
+	case 'showdayoff': 
+		$day = isset($_GET['day']) ? Clean::int($_GET['day']) : null;
+		if ($day !== null && $day > 0) {
+			$date = date('Y-m-').$day;
+			$startDate = $date . " 00:00:00";
+			$endDate = $date . " 23:59:59";
+			$query = "
+				SELECT 
+					o.inface, o.type, o.idonu, o.added, o.online, o.offline, 
+					o.status, o.mac, o.sn, o.rx, o.dist, o.olt, o.rxstatus, 
+					s.place, s.id AS switch_id 
+				FROM onus o
+				JOIN switch s ON s.id = o.olt
+				WHERE o.status = 2 AND o.offline BETWEEN :startDate AND :endDate
+			";
+			$stmt = $pdo->prepare($query);
+			$stmt->execute([
+				'startDate' => $startDate,
+				'endDate' => $endDate
+			]);
+			$data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			$tplresult = '<table class="pmon-tab-lite"><thead><tr>
+				<th width="5%">'.$lang['status'].'</th>
+				<th width="15%">OLT</th>
+				<th>Mac Sn</th>
+				<th width="10%">'.$lang['inface'].'</th>
+				<th width="8%">'.$lang['dist'].'</th>
+				<th width="8%">'.$lang['signal'].'</th>
+				<th class="mobile" width="15%">
+					<span class="inf_status">
+						<span class="tim1">'.$lang['online'].'</span>
+						<span class="tim2">'.$lang['offline'].'</span>
+					</span>
+				</th>
+				</tr></thead><tbody>';	
+			if(isset($data) && $data!=false){
+			foreach($data as $ontid => $onu){
+					$onukey = (!empty($onu['mac'])?$onu['mac']:(!empty($onu['sn'])?$onu['sn']:'n/a'));
+					$onuname = (!empty($onu['name'])? '<span class="bad_name_onu">'.$onu['name'].'</span>':'');
+					$tplresult .= '<tr>
+					<td><span class="statusonu st_'.$onu['status'].'"</span></td>
+					<td class="td_place"><a href="/?do=detail&act=olt&id='.$onu['olt'].'">'.$onu['place'].'</a></td>
+					<td class="td_onu">
+					<a href="/?do=onu&id='.$onu['idonu'].'">'.($onu['status']==2?'<font color="grey">':'').''.$onukey.' '.$onuname.'</a>
+					<span class=\'copy\' onclick="enableCopyOnClick(\''.$onukey.'\')"><img src=\'../style/img/copy.png\'></span>
+					</td>
+					<td class="td_inface">'.strtoupper($onu['type']).' '.$onu['inface'].'</td>
+					<td class="td_dist">'.($onu['dist'] ? metersToKilometers($onu['dist']) : '').'</td>';
+					$ex_ono = '';
+					if(isset($onu['rx']) && $onu['rx']!=false){
+						$ex_ono = signalTerminal($onu['rx']).($onu['rxstatus']=='up' || $onu['rxstatus']=='down' ? '<span class="signaldown"><i class="fi fi-rr-angle-small-'.$onu['rxstatus'].'"></i></span>':'');
+					}
+					$tplresult .= '<td class="bad_list">'.($onu['status']==2?'':$ex_ono).'</td>';
+					$tplresult .= '<td class="mobile">';
+						if($onu['status']==1){
+							$tplresult .= '<span class="on_">'.aftertime($onu['online']).'</span>';
+						}else{
+							$tplresult .= '<span class="off_">'.aftertime($onu['offline']).'</span>';
+						}
+					$tplresult .= '</td>';
+					$tplresult .= '</tr>';
+				}
+			}else{
+				$tplresult .= '<tr><td colspan="9">'.$lang['empty'].'</td></tr>';
+			}
+			$tplresult .= '</table>';
+			echo $tplresult;
+		} else {
+			echo json_encode(['error' => 'Невірна дата']);
+		}
+		break;
+	case 'stats_added':         
+		$query = "SELECT DATE(added) as day, COUNT(*) as count 
+				  FROM onus 
+				  WHERE YEAR(added) = YEAR(CURDATE()) 
+				  AND MONTH(added) = MONTH(CURDATE()) 
+				  GROUP BY day 
+				  ORDER BY day ASC";
+		$stmt = $pdo->query($query);
+		$data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$dates = [];
+		for ($i = 6; $i >= 0; $i--) {
+			$date = date('Y-m-d', strtotime("-{$i} days"));
+			$day = date('d', strtotime($date));
+			$dates[$day] = 0;
+		}
+		foreach ($data as $row) {
+			$day = date('d', strtotime($row['day']));
+			if ($row['count'] < 80) {
+				$dates[$day] = (int)$row['count'];
+			}
+		}
+		echo json_encode($dates);
+		break;	
+	case 'stats_disconnect':         
+		$query = "SELECT DATE(offline) as day, COUNT(*) as count 
+				  FROM onus 
+				  WHERE YEAR(offline) = YEAR(CURDATE()) 
+				  AND MONTH(offline) = MONTH(CURDATE()) AND status = 2
+				  GROUP BY day 
+				  ORDER BY day ASC";
+		$stmt = $pdo->query($query);
+		$data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$dates = [];
+		for ($i = 6; $i >= 0; $i--) {
+			$date = date('Y-m-d', strtotime("-{$i} days"));
+			$day = date('d', strtotime($date));
+			$dates[$day] = 0;
+		}
+		foreach ($data as $row) {
+			$day = date('d', strtotime($row['day']));
+			if ($row['count'] < 80) {
+				$dates[$day] = (int)$row['count'];
+			}
+		}
+		echo json_encode($dates);
+		break;
+	case 'taskers': 		
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		if(is_valid_id($id) && $access->get('dev' . $id)) {
+			$sql_list_taskers = $db->SimpleWhile("SELECT * FROM `taskers` WHERE deviceid ='{$id}'");
+			echo'<div id="min_list_taskers">';
+			foreach ($sql_list_taskers as $taskers) {
+				echo'<div class="list_taskers" >';
+				echo"<a class=\"panel_house rr_1\" href=\"/#\" onclick=\"deleteTask('system','{$taskers['id']}',event)\">{$lang['delet']}</a>
+				";
+				echo'<div class="lang" onclick="taskers_get(\'Do you really want to complete the task?\','.$taskers['workid'].','.$id.')">'.$lang['taskers_'.$taskers['workid']].'</div>';
+				echo'<div class="date">'.aftertime($taskers['last_run_time']).'</div>';
+				//echo'<div class="runer">Get start</div>';
+				echo'</div>';
+				
+			}
+			echo'</div>';
+		}
+		exit;
+		break;
+}
+exit;
+?>

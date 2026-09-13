@@ -1,0 +1,10 @@
+CREATE TABLE `onus_error` (
+`id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+`idonu` INT NOT NULL,
+`error` BIGINT DEFAULT NULL,
+`riznica` BIGINT DEFAULT NULL,
+`added` DATETIME DEFAULT CURRENT_TIMESTAMP,
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+ALTER TABLE onus_error  ADD INDEX idx_onus_error_idonu_added (idonu, added),  ADD INDEX idx_onus_error_id (id);
+

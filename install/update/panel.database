@@ -1,0 +1,9 @@
+CREATE TABLE `panel_client` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `balance` int(11) DEFAULT NULL,
+  `onukey` text DEFAULT NULL,
+  `login` text DEFAULT NULL,
+  `password` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;

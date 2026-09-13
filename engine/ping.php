@@ -1,0 +1,152 @@
+<?php
+declare(strict_types=1);
+if(!defined('PONMONITOR')){
+	die('Access is denied.');
+}
+require_once __DIR__ . '/../inc/database.php';
+$ICMP_TIMEOUT_MS = 1200;
+$ICMP_COUNT = 2;
+$SNMP_WORKERS = 10;
+function pdoConnect(): PDO {
+    return new PDO(
+        "mysql:host=" . DBHOST . ";dbname=" . DBNAME . ";charset=utf8mb4",DBUSER,DBPASS,[PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,PDO::ATTR_PERSISTENT => false]
+    );
+}
+function pdoReconnect(PDO &$pdo): void {
+    try {
+        $pdo->query('SELECT 1');
+    } catch (Throwable) {
+        $pdo = pdoConnect();
+    }
+}
+$pdo = pdoConnect();
+function icmp_fping_alive(array $ips, int $timeoutMs, int $count): array {
+    $ips = array_filter($ips, fn($ip) => filter_var($ip, FILTER_VALIDATE_IP));
+    if (!$ips) return ['alive' => [], 'probe_ok' => false];
+    $tmp = tempnam(sys_get_temp_dir(), 'fping_');
+    file_put_contents($tmp, implode("\n", $ips));
+    $alive = [];
+    exec(
+        sprintf('fping -a -q -c %d -t %d < %s 2>/dev/null', $count, $timeoutMs, $tmp),
+        $alive,
+        $rc
+    );
+    unlink($tmp);
+    if ($rc === 127 || $rc === 4) {
+        return ['alive' => [], 'probe_ok' => false];
+    }
+    $out = [];
+    foreach ($alive as $line) {
+        $ip = trim($line);
+        if (filter_var($ip, FILTER_VALIDATE_IP)) {
+            $out[$ip] = true;
+        }
+    }
+    return ['alive' => $out, 'probe_ok' => true];
+}
+class SnmpPoller {
+    private int $workers;
+    private string $dir;
+    public function __construct(int $workers) {
+        $this->workers = max(1, $workers);
+        $this->dir = sys_get_temp_dir() . '/snmp_' . getmypid();
+        if (!is_dir($this->dir)) {
+            mkdir($this->dir, 0700, true);
+        }
+    }
+    public function run(array $devices): array {
+        if (!$devices) return [];
+        $chunkSize = max(1, (int)ceil(count($devices) / $this->workers));
+        $chunks = array_chunk($devices, $chunkSize, true);
+        foreach ($chunks as $chunk) {
+            $pid = pcntl_fork();
+            if ($pid === 0) {
+                foreach ($chunk as $id => $dev) {
+                    $ok = $this->snmp($dev);
+                    file_put_contents($this->dir . '/' . $id, $ok ? '1' : '2', LOCK_EX);
+                }
+                exit(0);
+            }
+        }
+        while (pcntl_wait($status) > 0) {}
+        $out = [];
+        foreach (glob($this->dir . '/*') as $f) {
+            $out[(int)basename($f)] = (int)file_get_contents($f);
+            unlink($f);
+        }
+        @rmdir($this->dir);
+        return $out;
+    }
+    private function snmp(array $d): bool {
+        if (empty($d['ip']) || empty($d['snmp_community'])) return false;
+        exec(
+            sprintf(
+                'timeout 2 snmpget -v2c -c %s %s 1.3.6.1.2.1.1.3.0 2>/dev/null',
+                escapeshellarg($d['snmp_community']),
+                escapeshellarg($d['ip'])
+            ),
+            $o,
+            $rc
+        );
+        return $rc === 0;
+    }
+}
+pdoReconnect($pdo);
+$devices = $pdo->query("SELECT id, netip ip, snmpro snmp_community, place, pinger FROM switch")->fetchAll();
+if (!$devices) exit("NO DEVICES\n");
+$icmpResult = icmp_fping_alive(array_column($devices, 'ip'), $ICMP_TIMEOUT_MS, $ICMP_COUNT);
+$aliveIps = $icmpResult['alive'] ?? [];
+$fpingOk = (bool)($icmpResult['probe_ok'] ?? false);
+$alive = [];
+foreach ($devices as $d) {
+    if (!empty($d['ip']) && filter_var($d['ip'], FILTER_VALIDATE_IP)) {
+        $alive[$d['id']] = $d;
+    }
+}
+$snmp = (new SnmpPoller($SNMP_WORKERS))->run($alive);
+$now = date('Y-m-d H:i:s');
+$updates = [];
+$notify = [];
+foreach ($devices as $d) {
+    $id  = (int)$d['id'];
+    $old = (int)$d['pinger'];
+    $snmpState = $snmp[$id] ?? 2; // 1=SNMP OK, 2=SNMP DOWN
+
+    if ($snmpState === 1) {
+        $new = 1;
+    } elseif ($fpingOk && isset($aliveIps[$d['ip']])) {
+        $new = 2;
+    } elseif ($fpingOk && !isset($aliveIps[$d['ip']])) {
+        $new = 0;
+    } else {
+        $new = $old;
+    }
+    if ($old !== $new) {
+        $notify[] = [
+            match ($new) {
+                0 => "{$d['place']} - DOWN",
+                1 => "{$d['place']} - UP",
+                2 => "{$d['place']} - SNMP DOWN"
+            },
+            $now
+        ];
+    }
+    $updates[] = [$new, $id];
+}
+pdoReconnect($pdo);
+$upd = $pdo->prepare("UPDATE switch SET pinger=? WHERE id=?");
+foreach ($updates as $u) {
+    $upd->execute($u);
+}
+if ($notify) {
+    pdoReconnect($pdo);
+    $vals = [];
+    $ph   = [];
+    foreach ($notify as [$m, $t]) {
+        $ph[] = "(1,6,'pinger',?,?)";
+        $vals[] = $m;
+        $vals[] = $t;
+    }
+    $pdo->prepare("INSERT INTO notification (status,type,system,message,added) VALUES " . implode(',', $ph))->execute($vals);
+}
+?>

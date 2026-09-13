@@ -1,0 +1,19 @@
+CREATE TABLE `users_odometr` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `status` int(11) DEFAULT NULL,
+  `start_date` datetime DEFAULT NULL,
+  `start_odometr` int(11) DEFAULT NULL,
+  `finish_date` datetime DEFAULT NULL,
+  `finish_odometr` int(11) DEFAULT NULL,
+  `km` int(11) DEFAULT NULL,
+  `message` text DEFAULT NULL,
+  `suma` int(11) DEFAULT NULL,
+  `system` text DEFAULT NULL,
+  `car` text DEFAULT NULL,
+  `device` text DEFAULT NULL,
+  `groups` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  `update` datetime DEFAULT NULL,
+  `userid` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;

@@ -1,0 +1,1850 @@
+﻿<?php
+if (!defined('PONMONITOR')){
+	die('Hacking attempt!');
+}
+define('FIBER',true);
+require_once ENGINE_DIR.'functions/pon.php';
+require_once ENGINE_DIR.'functions/editor.php';
+$icons_pon_list = [
+'onu' => 'onu.png',
+'ubnt' => 'ubnt.png',
+'fiber' => 'fiber.png',
+'device' => 'device.png',
+'switch24' => 'switch24.png',
+'ipcamera' => 'ipcamera.png',
+'mdu' => 'mdu.png',
+'myfta' => 'myfta.png',
+'myfta_proxid' => 'myfta_proxid.png',
+'box550' => 'box550.png',
+];
+$id = isset($_GET['id'])?Clean::int($_GET['id']):null;
+$types = isset($_GET['types'])?Clean::text($_GET['types']):null;
+$btnmap = '';
+$listlocation = '';
+$getlocation = '';
+$resutltpl = '';
+$resutl_tpl = '';
+$bar_tpl = '';
+$menu_left ='';
+$viewmenu = false;
+if (!function_exists('fiberElementColumns')) {
+	function fiberElementColumns(PDO $pdo): array {
+		static $cols = null;
+		if ($cols !== null) {
+			return $cols;
+		}
+		$cols = [];
+		try {
+			$stmt = $pdo->query("SHOW COLUMNS FROM ponmap_elements");
+			if ($stmt) {
+				foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+					$field = isset($row['Field']) ? (string)$row['Field'] : '';
+					if ($field !== '') {
+						$cols[$field] = true;
+					}
+				}
+			}
+		} catch (Throwable $e) {
+			$cols = [];
+		}
+		return $cols;
+	}
+}
+if (!function_exists('fiberHasElementColumn')) {
+	function fiberHasElementColumn(PDO $pdo, string $column): bool {
+		$cols = fiberElementColumns($pdo);
+		return isset($cols[$column]);
+	}
+}
+if (!function_exists('fiberEnsureElementDescriptionColumn')) {
+	function fiberEnsureElementDescriptionColumn(PDO $pdo): bool {
+		if (fiberHasElementColumn($pdo, 'description')) {
+			return true;
+		}
+		try {
+			$pdo->exec("ALTER TABLE ponmap_elements ADD COLUMN description TEXT NULL AFTER name");
+		} catch (Throwable $e) {
+			// ignore; fallback to no-description mode
+		}
+		try {
+			$stmt = $pdo->query("SHOW COLUMNS FROM ponmap_elements");
+			$has = false;
+			if ($stmt) {
+				foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+					if (isset($row['Field']) && (string)$row['Field'] === 'description') {
+						$has = true;
+						break;
+					}
+				}
+			}
+			return $has;
+		} catch (Throwable $e) {
+			return false;
+		}
+	}
+}
+switch($act){
+	case 'edittree': 
+		$locationid = isset($_GET['location']) ? Clean::int($_GET['location']) : null;
+		$id = isset($_GET['id']) ? Clean::int($_GET['id']) : null;
+		$city = null;
+		if ($locationid !== null) {
+			$city = $db->Fast('location', '*', ['id' => $locationid]);
+		}
+		$pon_tree = null;
+		if ($id !== null) {
+			$pon_tree = $db->Fast('pontree', '*', ['id' => $id]);
+		}
+		$mapper = getMap();
+		$resutltpl .= ponjs();
+		$lan = $lon = $config['geo_lan'];
+		if (!empty($pon_tree['lan'])) {
+			$lan = $pon_tree['lan'];
+		} elseif (!empty($city['lan'])) {
+			$lan = $city['lan'];
+		}
+		if (!empty($pon_tree['lon'])) {
+			$lon = $pon_tree['lon'];
+		} elseif (!empty($city['lon'])) {
+			$lon = $city['lon'];
+		}
+		$pontrees = '';
+		$sqlpontree = $db->Multi('pontree');
+		foreach ($sqlpontree as $pontree) {
+			if (!empty($pontree['lan']) && !empty($pontree['lon'])) {
+				$pontrees .= "L.marker([" . $pontree['lan'] . "," . $pontree['lon'] . "],{icon: L.divIcon({className: 'map-group', html: '<div class=\"map-group-img\"><img src=\"../style/img/unit.png\"></div>'})}).bindPopup(\"<b>".$lang['location'].":</b> " . $pontree['name'] . "\").addTo(map);\n";
+			}
+		}
+		$metatags = [
+			'title' => $lang['vols_edittree'] . ' ' . $pon_tree['name'],
+			'description' => $lang['vols_edittree'],
+			'page' => 'edittree'
+		];
+		$maping = ['city' => $city,'lan' => $lan,'lon' => $lon,'mapper' => $mapper,'pontrees' => $pontrees,'types' => 'edit','pon' => $pon_tree];
+		$resutltpl .= mapper_add_tree($maping);
+	break;
+	case 'viewphoto':
+		$resutltpl ="";
+		$photo_id = isset($_POST['photo_id']) ? Clean::int($_POST['photo_id']): null;	
+		if(isset($photo_id) && $photo_id>0){
+			$sql_photo = $db->Simple("SELECT * FROM ponmap_photo where id = '{$photo_id}' LIMIT 1");
+			if(!empty($sql_photo['id'])){
+				require_once ENGINE_DIR.'functions/bbcode.php';
+				$pon_element_url = "/?do=fiber&act=details&id=".$sql_photo["ponid"];
+				$resutltpl .= "<div class=\"image-grid-view\">";	
+				$resutltpl .= "<div class=\"ponmap_photo\"><a href=\"../file/photo/{$sql_photo['photo']}\" target=\"_blank\" ><img src=\"/?do=thumb&type=photo&img={$sql_photo['photo']}\"></a></div>";
+				$resutltpl .= "<div class=\"ponmap_note\"><div id=\"ponmap_note_edit\">";
+				$resutltpl .= "<h2><div class=\"ponman_added\">{$sql_photo['added']}</div>{$sql_photo['name']}</h2>
+					<div class=\"ponbox_panel ma_r10\" style=\"display:flex;flex-direction:row;padding:5px 0 0 10px;justify-content: flex-start;\">
+					<a class=\"edit\" href=\"#\" onclick=\"edit_photo({$sql_photo['id']})\">Редагувати</a>
+					<a class=\"delet\" href=\"{$pon_element_url}&photo_id={$sql_photo['id']}&fn=delet\">Видалити</a>
+					</div>
+					".(!empty($sql_photo['note']) ? '<div class="photo_note">'.bbcode($sql_photo['note']).'</div>':'')."
+				";
+				$resutltpl .= "</div></div></div>";
+			}
+		}
+		echo $resutltpl;
+		exit;		
+	break;
+	case 'updatephoto':	
+		$id = isset($_POST['photo']) ? Clean::int($_POST['photo']): null;
+		$name = isset($_POST['name']) ? Clean::text($_POST['name']): null;
+		$content = isset($_POST['content']) ? Clean::text($_POST['content']): null;
+		if(isset($content)){
+			$message = $content;
+		}
+		if(is_valid_id($id) && isset($name) && isset($message)){
+			$photo = $db->Fast('ponmap_photo','*',['id' => $id]);			
+			$db->query("UPDATE ponmap_photo SET name = '{$name}', note = '{$message}' WHERE id = {$id}");
+			$go->go('/?do=fiber&act=details&id='.$photo['ponid']);
+			exit;
+		}
+		$go->redirect('main');
+		exit;
+	break;
+	case 'editphoto':
+		$photoid = isset($_POST['photo_id']) ? Clean::int($_POST['photo_id']): null;
+		if(is_valid_id($photoid)){
+			$photo = $db->Fast('ponmap_photo','*',['id' => $photoid]);
+		echo '
+		<div class="m0">
+			<form action="/?do=fiber" method="post" id="formadd" enctype="multipart/form-data">
+			<input name="act" type="hidden" value="updatephoto">
+			<input name="photo" type="hidden" value="'.$photo['id'].'">
+			<div class="polebtn">
+				<input style="width:90%;" name="name" class="input1" type="text" value="'.$photo['name'].'">
+			</div>
+			<div class="polebtn">
+				<div class="bbdcode">
+					<div onclick="insertTag(\'b\')"><img src="../style/bbcodes/b.png"></div>
+					<div onclick="insertTag(\'code\')"><img src="../style/bbcodes/code.png"></div>
+				</div>
+				<textarea style="height:300px;" id="content" name="content" class="input_note">'.$photo['note'].'</textarea>
+			</div>
+			<div class="polebtn">
+				<button type="submit" form="formadd" value="submit">'.$lang['update'].'</button>
+			</div>
+			</form>
+		</div>';
+		}
+		exit;		
+	break;
+	case 'savemove': 
+		$treeid = isset($_POST['treeid']) ? Clean::int($_POST['treeid']) : null;	
+		$ponunit = isset($_POST['ponunit']) ? Clean::int($_POST['ponunit']) : null;	
+		$pon_tree = $db->Fast('pontree', '*', ['id' => $treeid]);
+		if(!empty($pon_tree['id']) && $ponunit>0){
+			$db->query("UPDATE pontree SET unit_id = '{$ponunit}' WHERE id = '{$pon_tree['id']}'");
+			$db->query("UPDATE ponelement SET unit_id = '{$ponunit}' WHERE tree = '{$pon_tree['id']}'");
+			echo'<td colspan="6"><b>PON гілку перенесено на інший вузол</b></td>';
+			die;
+		}
+	break;
+	case 'move': 
+		$metatags = array('title'=>'Переміщення PON-дерев на інший вузол','description'=>'Переміщення PON-дерев на інший вузол','page'=>'move');
+		$select_ponunit = '';
+		$array_ponunit = array();
+		$bar_tpl .= '<div class="nav-bar">';
+			$bar_tpl .= '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>';
+			$bar_tpl .= '<a href="/?do=fiber&act=unit"><i class="fi fi-rr-angle-left"></i>'.$lang['volsmeraja'].'</a>';
+			$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>Переміщення PON дерева</span>';
+			$bar_tpl .= '</div>';
+		$sql_ponunit_ = $db->SimpleWhile("SELECT * FROM ponunit");
+		if(isset($sql_ponunit_) && count($sql_ponunit_) > 0){
+			foreach($sql_ponunit_ as $unit_id => $pon_unit){
+				$array_ponunit[$pon_unit['id']] = array('name'=>$pon_unit['name'],'id'=>$pon_unit['id']);
+			}
+		}
+		$listcomm = $db->SimpleWhile("SELECT * FROM pontree");
+		if(isset($listcomm) && count($listcomm) > 0){
+			$resutltpl .= '<table id="ponbox_list" class="resp-tab"><thead><tr>
+				<th width="5%">Id</th>
+				<th>Назва</th>
+				<th width="40%">Гілки</th>
+				<th width="20%">Керування</th>
+				<th width="10%">Адмін</th>
+				<th width="10%">'.$lang['added'].'</th>
+				</tr></thead><tbody>';
+			foreach($listcomm as $pontree){
+				$resutltpl .= '<tr id="result_'.$pontree['id'].'">
+					<td>'.$pontree['id'].'</td>
+					<td class="td_url">'.$pontree['name'].'</td>
+					<td class="td_url"><div class="flex_p">';
+				$list_pon_element = $db->SimpleWhile("SELECT name FROM ponelement WHERE tree = '{$pontree['id']}'");
+					if(isset($list_pon_element) && count($list_pon_element) > 0){
+						foreach($list_pon_element as $pon_element){
+							$resutltpl .= '<div>'.$pon_element['name'].'</div>';
+						}
+					}
+				$resutltpl .= '</div></td>
+					<td class="td_url">';
+			if(isset($array_ponunit) && count($array_ponunit) > 0){
+				$resutltpl .= '<select class="select" name="ponunit" id="ponunit_'.$pontree['id'].'">';
+				foreach($array_ponunit as $unit){
+					$selected = ($unit['id'] == $pontree['unit_id']) ? 'selected="selected"' : '';
+					$resutltpl .= '<option value="'.$unit['id'].'" '.$selected.'>'.$unit['name'].'</option>';
+				}
+				$resutltpl .= '</select>';
+			}
+			$resutltpl .= '</td>
+					<td><span class="span_btn" onclick="ponunit_send('.$pontree['id'].')">Перенести</span></td>
+					<td><font color="#4CAF50">'.$pontree['added'].'</font></td>
+				</tr>';
+			}
+			$resutltpl .= '</tbody></table>';
+		}
+	break;
+	case 'addmapper': 	
+		require MODULE_FIBER.'addmapper.php';
+	break;	
+	case 'list': 	
+		$metatags = array('title'=>$lang['list'],'description'=>$lang['list'],'page'=>'list');
+		$resutltpl .= '<table class="resp-tab list-onu-olt"><thead><tr>
+			<th width="15%">'.$lang['location'].'</th><th>'.$lang['name'].'</th><th>Pon</th>
+		</tr>
+		</thead><tbody>';
+		$list_element = $db->SimpleWhile("SELECT * FROM ponelement LIMIT 60");
+		if(isset($list_element) && count($list_element)>0){
+			foreach($list_element as $id => $element){
+				$resutltpl .='<tr>
+					<td>'.$element['location'].'</td><td>'.$element['name'].'</td><td>'.$element['mereja'].'</td>
+				</tr>';
+			}
+		}
+		$resutltpl .= '</table>';
+	break;	
+	case 'updatevols': 	
+		$geo = isset($_POST['geo']) ? $_POST['geo'] : null;
+		$volid = isset($_POST['volid']) ? Clean::int($_POST['volid']): null;
+		if ($volid === null || $volid <= 0) {
+			exit;
+		}
+		if ($geo === null || !is_string($geo)) {
+			exit;
+		}
+		if (!preg_match('/^M[\d]+,[\d]+(L[\d]+,[\d]+)*$/', $geo)) {
+		die('err_1');	
+		}
+		$db->query("UPDATE ponmap_connect SET connect = '{$geo}' WHERE id = '{$volid}'");		
+		exit;
+	break;	
+	case 'vokconnect': 
+		$element = isset($_POST['element']) ? Clean::str($_POST['element']): null;	
+		$elementid = isset($_POST['elementid']) ? Clean::int($_POST['elementid']): null;	
+		$note = isset($_POST['note']) ? Clean::text($_POST['note']): null;	
+		$signal = isset($_POST['signal']) ? Clean::text($_POST['signal']): null;	
+		$note_row = $db->Fast('kabel_connector','*',['vokid'=>$element,'elementid'=>$elementid]);
+		$line = (isset($signal) && ($signal == 'in' || $signal == 'none' || $signal == 'out') ? $signal : false);
+		if(!empty($note_row['id'])){
+			$db->SQLupdate('kabel_connector',['note'=>$note, 'line'=>$line],['id'=>$note_row['id']]);
+		}else{
+			$db->SQLinsert('kabel_connector',['vokid'=>$element,'note'=>$note, 'line'=>$line,'elementid'=>$elementid]);
+		}
+		exit;
+	break;	
+	case 'addtree': 
+		$unitid = isset($_GET['unit']) ? Clean::int($_GET['unit']): null;
+		$ponunit = $db->Fast('ponunit','*',['id'=>$unitid]);
+		$poncity = $db->Fast('location','*',['id'=>$ponunit['location']]);			
+		$mapper = getMap();
+		$zoom = '17';
+		$lan = (isset($ponunit['lan']) ?$ponunit['lan']:(isset($poncity['lan']) ?$poncity['lan']:$config['geo_lan']));
+		$lon = (isset($ponunit['lon'])?$ponunit['lon']:(isset($poncity['lon']) ?$poncity['lon']:$config['geo_lan']));
+		$bar_tpl .= '<div class="nav-bar">';
+		$bar_tpl .= '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=unit"><i class="fi fi-rr-angle-left"></i>'.$lang['list'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=viewunit&id='.$ponunit['id'].'"><i class="fi fi-rr-angle-left"></i>'.$ponunit['name'].'</a>';
+		$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>'.$lang['newobj'].'</span>';
+		$bar_tpl .= '</div>';
+		$resutltpl .= '<div class="block_flex"><div class="class1">';	
+		$list_mereja = '
+		<select class="select" name="mereja" id="mereja">
+		<option value="pon">PON</option>
+		<option value="magistral">Магістраль</option>
+		<option value="connect">З\'єднання</option>
+		</select>
+		';
+		$resutltpl .= '<div class="nav-fiber p10"><form action="/?do=fiber" method="post"><input name="act" type="hidden" value="savetree">
+		<label for="name">'.$lang['name'].':</label><input type="text" id="name" name="name" required autocomplete="off"><br>
+		<input type="hidden" id="unit" name="unit" value="'.$unitid.'">
+		<input type="hidden" id="lan" name="lan">
+		<input type="hidden" id="lon" name="lon">
+		<label for="type">'.$lang['oid_types'].':</label>'.$list_mereja.'<br>
+		<label for="description">'.$lang['opis'].':</label><textarea id="description" name="description"></textarea><br>
+		<label for="name">Координати:</label><input type="text" id="lan_lon" name="lan_lon"><br>
+		<input type="submit" value="'.$lang['add'].'">
+		</div>';
+		$resutltpl .= '</div><div class="class1">';		
+		// map
+		$mapjs = <<<HTML
+		<script>
+		var lat = '$lan'; 
+		var lon = '$lon';
+		var map = L.map('divmap');
+		map.setView([lat, lon], {$zoom});
+		{$mapper}
+		map.on('click', function(event) {
+			var clickedLatLng = event.latlng;
+			L.popup().setLatLng(clickedLatLng).setContent("Lan: " + clickedLatLng.lat + "<br>lon: " + clickedLatLng.lng).openOn(map);
+			document.getElementById('lan').value = clickedLatLng.lat;
+			document.getElementById('lon').value = clickedLatLng.lng;
+			document.getElementById('lan_lon').value = clickedLatLng.lat + ',' + clickedLatLng.lng;
+		});
+		</script>
+		HTML;
+		$resutltpl .= '
+		<link rel="stylesheet" href="../style/map/leaflet.css" />
+		<script src="../style/map/leaflet.js"></script>
+		<script src="../style/map/mymarker.js"></script>
+		<div id="divmap" style="height:400px;"></div>
+		'.$mapjs;
+		$resutltpl .= '</div></div>';
+	break;	
+	case 'addtree_': 
+		$locationid = isset($_GET['location']) ? Clean::int($_GET['location']): null;	
+		$unitid = isset($_GET['unit']) ? Clean::int($_GET['unit']): null;	
+		$pontrees = '';
+		if(isset($unitid)){
+			$city = $db->Fast('location','*',['id'=>$locationid]);
+			$ponunit = $db->Fast('ponunit','*',['id'=>$unitid]);
+		}
+		$mapper = getMap();
+		$resutltpl .= ponjs();
+		$lan = (!empty($ponunit['lan'])?$ponunit['lan']:$city['lan']);
+		$lon = (!empty($ponunit['lon'])?$ponunit['lon']:$city['lon']);
+		if(isset($ponunit['id'])){
+			$where = array('unit_id'=>$ponunit['id']);
+			$sqlpontree = $db->Multi('pontree','*',$where);
+		}else{
+			$sqlpontree = $db->Multi('pontree');
+		}
+		if(isset($sqlpontree) && count($sqlpontree)>0){
+			foreach($sqlpontree as $pontree){
+				if(!empty($pontree['lan']) && !empty($pontree['lon'])){
+					$pontrees .= "L.marker([".$pontree['lan'].",".$pontree['lon']."],{icon: L.divIcon({html:'<div class=\"trees\">".$pontree['name']."</div>'})}).bindPopup(\"<b>Локація:</b> ".$pontree['name']."\").addTo(map);";
+				}
+			}
+		}
+		$metatags = array('title'=>$lang['vols_addtree'].' '.$city['name'],'description'=>$lang['vols_addtree'],'page'=>'addtree');
+		$maping = array('unitid' => $unitid,'city' => $city,'lan' => $lan,'lon' => $lon,'mapper' => $mapper,'pontrees' => $pontrees,'types' => 'add');
+		$bar_tpl .= '<div class="nav-bar">';
+		$bar_tpl .= '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=unit"><i class="fi fi-rr-angle-left"></i>'.$lang['volsmeraja'].'</a>';		
+		$bar_tpl .= '<a href="/?do=fiber&act=viewunit&id='.$ponunit['id'].'"><i class="fi fi-rr-angle-left"></i>'.$ponunit['name'].'</a>';
+		$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>Нова гілка</span>';
+		$bar_tpl .= '</div>';
+		$resutltpl .= mapper_add_tree($maping);
+	break;	
+	case 'del':
+		if (!$id) { 
+			$go->redirect('fiber'); 
+			exit; 
+		}
+		$stmt = $pdo->prepare('SELECT unit_id FROM pontree WHERE id = :id LIMIT 1');
+		$stmt->execute([':id' => (int)$id]);
+		$unitId = $stmt->fetchColumn();
+		if (!$unitId) { 
+			$go->redirect('fiber');
+			exit; 
+		}
+		$pdo->prepare('DELETE FROM pontree WHERE id = :id')->execute([':id' => (int)$id]);
+		$go->go('/?do=fiber&act=viewunit&id=' . (int)$unitId);
+		exit;
+	break;	
+	case 'update':	
+		require MODULE_FIBER.'update.php';
+		break;	
+	case 'edit':
+		require MODULE_FIBER.'edit.php';		
+		break;	
+	case 'add':	
+		require MODULE_FIBER.'add.php';
+		break;		
+	case 'details':	
+		require MODULE_FIBER.'details.php';
+		break;	
+	case 'save_unit':
+		require MODULE_FIBER.'saveunit.php';		
+		break;	
+	case 'element':		
+		require MODULE_FIBER.'element.php';		
+		break;	
+	case 'ethelement':		
+		require MODULE_FIBER.'ethelement.php';
+		break;	
+	case 'save':	
+		require MODULE_FIBER.'save.php';
+		break;	
+	case 'delete':
+		if (!$id) { $go->redirect('fiber'); break; }
+		$stmt = $pdo->prepare('SELECT tree FROM ponelement WHERE id = :id LIMIT 1');
+		$stmt->execute([':id' => (int)$id]);
+		$treeId = $stmt->fetchColumn();
+		if (!$treeId) { $go->redirect('fiber'); break; }
+		$pdo->prepare('DELETE FROM ponelement WHERE id = :id')->execute([':id' => (int)$id]);
+		$go->go('/?do=fiber&act=viewtree&id=' . (int)$treeId);
+		break;	
+	case 'view':	
+		require MODULE_FIBER.'pmonvols.php';
+					$bar_tpl .= '';
+			$resutltpl .= '';
+			$viewmenu = true;
+	break;	
+	case 'view_':	
+		if(!$id){
+			$go->redirect('fiber');
+		}
+		$ponbox = $db->Fast('ponelement','*',['id'=>$id]);
+		if(empty($ponbox['id'])){
+			$go->redirect('fiber');
+		}else{
+			$pontree = $db->Fast('pontree','*',['id'=>$ponbox['tree']]);
+			$ponlocation = $db->Fast('location','*',['id'=>$ponbox['location']]);
+			$bar_tpl .= '';
+			$resutltpl .= '<div id="connector"></div>
+			<script>ajaxconnection('.$id.');
+			</script>';
+			$viewmenu = true;
+		}
+	break;	
+	case 'deletelement':		
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : 0;
+		$el = isset($_POST['el']) ? Clean::int($_POST['el']) : 0;
+		if ($id <= 0 || $el <= 0) {
+			exit;
+		}
+		$elemStmt = $pdo->prepare("SELECT id, type, name FROM ponmap_elements WHERE id = :id LIMIT 1");
+		$elemStmt->execute([':id' => $id]);
+		$elem = $elemStmt->fetch(PDO::FETCH_ASSOC);
+		if (empty($elem['id'])) {
+			exit;
+		}
+		// Важливо: видаляємо тільки елементи комутації (без змін у onus / onusdata).
+		$delConn = $pdo->prepare("DELETE FROM ponmap_connectors WHERE element_id = :id");
+		$delConn->execute([':id' => $id]);
+		$delElem = $pdo->prepare("DELETE FROM ponmap_elements WHERE id = :id");
+		$delElem->execute([':id' => $id]);
+		$delLinks = $pdo->prepare("DELETE FROM ponmap_connect WHERE elementid = :el AND (p1 = :id OR p2 = :id)");
+		$delLinks->execute([':el' => $el, ':id' => $id]);
+		exit;
+	break;	
+	case 'deleteconnect':		
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$el = isset($_POST['el']) ? Clean::int($_POST['el']) : null;
+		if(isset($id) && $id>0 && isset($el) && $el>0){
+			$db->SQLdelete('ponmap_connect',['id' =>$el]);
+		}
+		die;
+	break;	
+	case 'updatespliters':		
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;	
+		$direction = isset($_POST['direction']) ? Clean::text($_POST['direction']) : null;
+		if(isset($id) && $id>0 && ($direction=='top' || $direction=='left' || $direction=='right' || $direction=='down')){
+			$sql= "UPDATE ponmap_elements  SET `position` = '{$direction}' WHERE id = '{$id}'";
+			$db->query($sql);
+		}
+		exit;		
+	break;	
+	case 'updateconnect':		
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$color = isset($_POST['color']) ? Clean::text($_POST['color']) : '#ffd400';		
+		$conn1 = isset($_POST['c1']) ? Clean::text($_POST['c1']) : false;		
+		$conn2 = isset($_POST['c2']) ? Clean::text($_POST['c2']) : false;		
+		$in1 = isset($_POST['connect1']) ? Clean::text($_POST['connect1']) : null;	// left or righr	
+		$in2 = isset($_POST['connect2']) ? Clean::text($_POST['connect2']) : null;	// left or righr		
+		$border = isset($_POST['border']) ? Clean::text($_POST['border']) : 2;		
+		$povorot = isset($_POST['povorot']) ? Clean::text($_POST['povorot']) : 30;		
+		if (!empty($conn1) && !empty($conn2) && !empty($id) && $id>0 && !empty($color)) {
+			$sql= "UPDATE ponmap_connect  SET `povorot` = '{$povorot}',`connect1` = '{$conn1}',`connect2` = '{$conn2}',`color` = '{$color}', `in1` = '{$in1}',`in2` = '{$in2}',`border` = '{$border}' 
+			WHERE id = '{$id}'";
+			$db->query($sql);
+		}
+		exit;
+	break;	
+	case 'updatevok':	
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$direction = isset($_POST['direction']) ? Clean::text($_POST['direction']) : 'left';
+		if(isset($id) && $id>0 && ($direction=='left' || $direction =='right' || $direction =='top')){
+			$db->SQLupdate('kabel_position', ['position'=>$direction], ['id' => $id]);
+			$sql = "SELECT * FROM ponmap_connect WHERE elementid = '348' AND (connect1 LIKE 'vok118%' OR connect2 LIKE 'vok118%') ";
+			$get_list_rotare = $db->SimpleWhile($sql);
+			/*
+			if(isset($get_list_rotare) && count($get_list_rotare)>0){
+				foreach($get_list_rotare as $row){
+					if($direction =='left'){
+						if($row['in2']=='left'){
+							$sql= "UPDATE ponmap_connect SET `in2` = 'right' WHERE id = '{$row['id']}'";
+							$db->query($sql);
+						}
+						if($row['in2']=='right'){
+							$sql= "UPDATE ponmap_connect SET `in2` = 'left' WHERE id = '{$row['id']}'";
+							$db->query($sql);
+						}
+						if($row['in1']=='right'){
+							$sql= "UPDATE ponmap_connect SET `in1` = 'left' WHERE id = '{$row['id']}'";
+							$db->query($sql);
+						}						
+						if($row['in1']=='left'){
+							$sql= "UPDATE ponmap_connect SET `in1` = 'right' WHERE id = '{$row['id']}'";
+							$db->query($sql);
+						}
+					}elseif($direction =='right'){
+						if($row['in2']=='right'){
+							$sql= "UPDATE ponmap_connect SET `in2` = 'left' WHERE id = '{$row['id']}'";
+							$db->query($sql);
+						}						
+						if($row['in2']=='left'){
+							$sql= "UPDATE ponmap_connect SET `in2` = 'right' WHERE id = '{$row['id']}'";
+							$db->query($sql);
+						}
+						if($row['in1']=='left'){
+							$sql= "UPDATE ponmap_connect SET `in1` = 'right' WHERE id = '{$row['id']}'";
+							$db->query($sql);
+						}						
+						if($row['in1']=='right'){
+							$sql= "UPDATE ponmap_connect SET `in1` = 'left' WHERE id = '{$row['id']}'";
+							$db->query($sql);
+						}						
+					}
+				}
+			}
+			*/
+		}
+		exit;
+	break;	
+	case 'addconnect':	
+		$p1 = isset($_POST['p1']) ? Clean::int($_POST['p1']) : null;
+		$p2 = isset($_POST['p2']) ? Clean::int($_POST['p2']) : null;
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$color = isset($_POST['color']) ? Clean::text($_POST['color']) : 'blue';		
+		$conn1 = isset($_POST['c1']) ? Clean::text($_POST['c1']) : false;		
+		$conn2 = isset($_POST['c2']) ? Clean::text($_POST['c2']) : false;		
+		$in1 = isset($_POST['x1']) ? Clean::text($_POST['x1']) : 'left';		
+		$in2 = isset($_POST['x2']) ? Clean::text($_POST['x2']) : 'right';		
+		$border = isset($_POST['border']) ? Clean::text($_POST['border']) : 2;		
+		if (!empty($conn1) && !empty($conn2) && !empty($id) && $id>0 && !empty($color)) {
+			$sql= "INSERT INTO ponmap_connect (`elementid`,`color`,`connect1`,`connect2`,`border`,`in1`,`in2`,`p1`,`p2`) VALUES ('{$id}','{$color}','{$conn1}','{$conn2}','{$border}','".re_position($in1)."','".re_position($in2)."','{$p1}','{$p2}');";
+			$db->query($sql);
+		}
+		exit;
+	break;	
+	case 'up':		
+		$sqlset = array();
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$elementid = isset($_POST['el']) ? Clean::int($_POST['el']) : null;
+		$type = isset($_POST['d']) ? Clean::text($_POST['d']) : null;
+		$sqlset['top'] = isset($_POST['t']) ? Clean::int($_POST['t']) : 0;
+		$sqlset['left'] = isset($_POST['l']) ? Clean::int($_POST['l']) : 0;
+		if ($id > 0 && $sqlset['left'] !== null && $sqlset['top'] !== null) {
+			if($type=='splitter'){
+				$db->SQLupdate('ponmap_elements', $sqlset, ['id' => $id]);
+				echo'ok';
+			}elseif($type=='onu'){
+				$db->SQLupdate('ponmap_elements', $sqlset, ['id' => $id]);
+				echo'ok';
+			}elseif($type=='planar'){
+				$db->SQLupdate('ponmap_elements', $sqlset, ['id' => $id]);
+				echo'ok';				
+			}elseif($type=='switch' || $type=='cross'){
+				$db->SQLupdate('ponmap_elements', $sqlset, ['id' => $id]);
+				echo'ok';
+			}elseif($type=='vok'){
+				$elem = $db->Fast('kabel_position','*',['connectid' => $id, 'elementid' => $elementid]);
+				if(!empty($elem['id'])){
+					$db->SQLupdate('kabel_position', $sqlset, ['id' => $elem['id']]);
+				}else{
+					$sql= "INSERT INTO kabel_position (`connectid`,`left`,`top`,`elementid`,`position`) VALUES 
+					('{$id}','{$sqlset['left']}','{$sqlset['top']}','{$elementid}','left');";
+					$db->query($sql);
+				}
+			}		
+		}
+		exit;		
+	break;	
+	case 'updateelementmeta':
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : 0;
+		$elementName = isset($_POST['element_name']) ? trim(Clean::text($_POST['element_name'])) : '';
+		$elementDescription = isset($_POST['element_description']) ? trim(Clean::text($_POST['element_description'])) : '';
+		if ($id <= 0) {
+			exit;
+		}
+		$stmt = $pdo->prepare("SELECT id, type FROM ponmap_elements WHERE id = :id LIMIT 1");
+		$stmt->execute([':id' => $id]);
+		$element = $stmt->fetch(PDO::FETCH_ASSOC);
+		if (empty($element['id'])) {
+			exit;
+		}
+		if (!in_array((string)$element['type'], ['switch', 'cross'], true)) {
+			exit;
+		}
+		if ($elementName === '') {
+			$elementName = ((string)$element['type'] === 'switch') ? 'Switch' : 'Cross';
+		}
+		$fields = ['name' => $elementName];
+		if (fiberEnsureElementDescriptionColumn($pdo)) {
+			$fields['description'] = $elementDescription;
+		}
+		$set = [];
+		$params = [':id' => $id];
+		foreach ($fields as $column => $value) {
+			$set[] = "`{$column}` = :{$column}";
+			$params[":{$column}"] = $value;
+		}
+		$sql = "UPDATE ponmap_elements SET " . implode(', ', $set) . " WHERE id = :id";
+		$upd = $pdo->prepare($sql);
+		$upd->execute($params);
+		exit;
+	break;
+	case 'adddevice':
+		$top = isset($_POST['top']) ? Clean::int($_POST['top']) : 0;
+		$left = isset($_POST['left']) ? Clean::int($_POST['left']) : 0;
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : 0;
+		$direction = isset($_POST['direction']) ? Clean::text($_POST['direction']) : 'left';
+		$deviceType = isset($_POST['device_type']) ? Clean::text($_POST['device_type']) : '';
+		$deviceName = isset($_POST['device_name']) ? Clean::text($_POST['device_name']) : '';
+		$deviceDescription = isset($_POST['device_description']) ? trim(Clean::text($_POST['device_description'])) : '';
+		$portsCount = isset($_POST['ports_count']) ? Clean::int($_POST['ports_count']) : 0;
+		if ($id <= 0 || !in_array($deviceType, ['switch','cross'], true)) {
+			exit;
+		}
+		if (!in_array($direction, ['top','down','left','right'], true)) {
+			$direction = 'left';
+		}
+		if ($portsCount < 2 || $portsCount > 128) {
+			$portsCount = ($deviceType === 'switch') ? 24 : 12;
+		}
+		if ($deviceName === '') {
+			$deviceName = ($deviceType === 'switch') ? 'Switch' : 'Cross';
+		}
+		$hasDescription = fiberEnsureElementDescriptionColumn($pdo);
+		if ($hasDescription) {
+			$insElem = $pdo->prepare("
+				INSERT INTO ponmap_elements (elementid, name, description, type, position, top, `left`)
+				VALUES (:elementid, :name, :description, :type, :position, :top, :left)
+			");
+			$insElem->execute([
+				':elementid' => $id,
+				':name' => $deviceName,
+				':description' => $deviceDescription,
+				':type' => $deviceType,
+				':position' => $direction,
+				':top' => $top,
+				':left' => $left
+			]);
+		} else {
+			$insElem = $pdo->prepare("
+				INSERT INTO ponmap_elements (elementid, name, type, position, top, `left`)
+				VALUES (:elementid, :name, :type, :position, :top, :left)
+			");
+			$insElem->execute([
+				':elementid' => $id,
+				':name' => $deviceName,
+				':type' => $deviceType,
+				':position' => $direction,
+				':top' => $top,
+				':left' => $left
+			]);
+		}
+		$elementId = (int)$pdo->lastInsertId();
+		if ($elementId > 0) {
+			$insConn = $pdo->prepare("
+				INSERT INTO ponmap_connectors (element_id, connector_type, connector_name, connected)
+				VALUES (:element_id, :connector_type, :connector_name, :connected)
+			");
+			if ($deviceType === 'switch') {
+				for ($i = 1; $i <= $portsCount; $i++) {
+					$insConn->execute([
+						':element_id' => $elementId,
+						':connector_type' => 'input',
+						':connector_name' => (string)$i,
+						':connected' => 'sw'.$elementId.'p'.$i
+					]);
+				}
+			} else {
+				for ($i = 1; $i <= $portsCount; $i++) {
+					$insConn->execute([
+						':element_id' => $elementId,
+						':connector_type' => 'input',
+						':connector_name' => (string)$i,
+						':connected' => 'cr'.$elementId.'in'.$i
+					]);
+					$insConn->execute([
+						':element_id' => $elementId,
+						':connector_type' => 'output',
+						':connector_name' => (string)$i,
+						':connected' => 'cr'.$elementId.'out'.$i
+					]);
+				}
+			}
+		}
+		exit;
+	break;
+	case 'addonus':
+		$top = isset($_POST['top']) ? Clean::int($_POST['top']) : 0;
+		$left = isset($_POST['left']) ? Clean::int($_POST['left']) : 0;
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : 0;
+		$direction = isset($_POST['direction']) ? Clean::text($_POST['direction']) : 'top';
+		$onus = isset($_POST['onus']) && is_array($_POST['onus']) ? $_POST['onus'] : [];
+		if ($id <= 0 || !$onus) { exit; }
+		$insElem = $pdo->prepare("
+			INSERT INTO ponmap_elements (elementid, name, type, position, top, `left`)
+			VALUES (?, ?, 'onu', ?, ?, ?)
+		");
+		$insConn = $pdo->prepare("
+			INSERT INTO ponmap_connectors (element_id, connector_type, connector_name, connected)
+			VALUES (?, 'input', 'onu', 'input')
+		");
+		$curTop = $top;
+		$step = 80;
+		foreach ($onus as $onukeyRaw) {
+			$onukey = trim((string)$onukeyRaw);
+			if ($onukey === '') continue;
+			$insElem->execute([$id, 'onu_id_'.$onukey, $direction, $curTop, $left]);
+			$elementId = (int)$pdo->lastInsertId();
+			if ($elementId > 0) {
+				$insConn->execute([$elementId]);
+				$curTop += $step;
+			}
+		}
+		exit;
+		break;			
+	case 'getstatus': 
+		header('Content-Type: application/json; charset=utf-8');
+		$idonu = (int)isset($_GET['idonu']) ? getOnuId($_GET['idonu']) : 0;
+		if ($idonu <= 0) {
+			echo json_encode(['ok' => false, 'error' => 'bad idonu'], JSON_UNESCAPED_UNICODE);
+			exit;
+		}
+		$stmt = $pdo->prepare("SELECT status, rx FROM onus WHERE idonu = :idonu LIMIT 1");
+		$stmt->execute([':idonu' => $idonu]);
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+		if (!$row) {
+			echo json_encode(['ok'=> false,'error'=> 'not found','status' => null,'rx'=> null], JSON_UNESCAPED_UNICODE);
+			exit;
+		}
+		echo json_encode(['ok'=> true,'idonu'=> $idonu,'status' => (int)$row['status'],'rx'=> ($row['status']==1 ? (string)$row['rx'] .' dbm' : 'offline')
+		], JSON_UNESCAPED_UNICODE);
+		exit;
+		break;	
+	case 'addspliters':	
+		$top = isset($_POST['top']) ? Clean::int($_POST['top']): null;
+		$left = isset($_POST['left']) ? Clean::int($_POST['left']): null;
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']): null;
+		$direction = isset($_POST['direction']) ? Clean::text($_POST['direction']): null;
+		$splitter = isset($_POST['splitter']) ? Clean::text($_POST['splitter']): null;
+		$pattern = '/^(procent|planar)_(\d+)\/(\d+)$/';
+		if (preg_match($pattern, $splitter, $tmp)) {
+			if($tmp[1]=='procent'){
+				$types = 'splitter';
+			}elseif($tmp[1]=='planar'){
+				$types = 'planar';
+			}else{
+				die('exit');
+			}
+			$sql = "INSERT INTO ponmap_elements (elementid,name,type,position,top,`left`) VALUES ('{$id}','{$splitter}','{$types}','{$direction}','{$top}','{$left}');";
+			$db->query($sql);
+		}
+		$element_id = $db->getInsertId();
+		$pattern = '/^(procent|planar)_(\d+)\/(\d+)$/';
+		if (preg_match($pattern, $splitter, $tmp)) {
+			$input = $tmp[1];
+			$output1 = $tmp[2];
+			$output2 = $tmp[3];
+			if($input=='planar'){
+				if(isset($output1) && isset($output2) && $output2 > 1 && $output2 > $output1){
+					$sqlin="INSERT INTO ponmap_connectors (element_id,connector_type,connector_name,connected) VALUES ('{$element_id}','input','In','input');";
+					$db->query($sqlin);
+					for ($i = $output1; $i <= $output2; $i++) {
+						$sqlout="INSERT INTO ponmap_connectors (element_id,connector_type,connector_name,connected) VALUES ('{$element_id}','output','{$i}','output{$i}');";
+						$db->query($sqlout);
+					}
+				}
+			}elseif($input=='procent'){
+				$sqlin="INSERT INTO ponmap_connectors (element_id,connector_type,connector_name,connected) VALUES ('{$element_id}','input','In','input');";
+				$db->query($sqlin);
+				$sqlout1="INSERT INTO ponmap_connectors (element_id,connector_type,connector_name,connected) VALUES ('{$element_id}','output','{$output1}','output1');";
+				$db->query($sqlout1);
+				$sqlout2="INSERT INTO ponmap_connectors (element_id,connector_type,connector_name,connected) VALUES ('{$element_id}','output','{$output2}','output2');";
+				$db->query($sqlout2);
+			}
+		}		
+		exit;
+	break;	
+	case 'viewtree':
+		require MODULE_FIBER.'viewtree.php';		
+	break;	
+	case 'savefiberunit':	
+		$gettypes = isset($_POST['gettypes']) ? Clean::int($_POST['gettypes']) : null;
+		$kabel = isset($_POST['kabel']) ? Clean::int($_POST['kabel']) : null;
+		$gettree = isset($_POST['gettree']) ? Clean::int($_POST['gettree']) : null;
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$ponunit = $db->Fast('ponunit', '*', ['id' => $id]);
+		$ponelement2 = $db->Fast('ponelement', '*', ['id' => $gettypes]);	
+		if ($id && $kabel && $gettree && !empty($ponelement2['lan']) && !empty($ponunit['lan'])) {
+			$sqlinsert['geo'] = "[[" . substr($ponunit['lan'], 0, 9) . "," . substr($ponunit['lon'], 0, 9) . "],[" . substr($ponelement2['lan'], 0, 9) . "," . substr($ponelement2['lon'], 0, 9) . "]];";
+			$sqlinsert['kabel'] = $kabel;
+			$sqlinsert['name'] = 'fiber' . $ponunit['id'] . $ponelement2['id'];
+			$sqlinsert['location1'] = $ponunit['id'];
+			$sqlinsert['conn1'] = $ponunit['id'];
+			$sqlinsert['tree1'] = $ponunit['id'];
+			$sqlinsert['location2'] = $ponelement2['unit_id'];
+			$sqlinsert['conn2'] = $ponelement2['id'];
+			$sqlinsert['tree2'] = $ponelement2['tree'];
+			$sqlinsert['types'] = 1;
+			$sqlinsert['unitid'] = $id;
+			$db->SQLinsert('fibers', $sqlinsert);
+			$connid = $db->getInsertId();
+			$sql_tree1 = "INSERT INTO kabel_position (`connectid`,`left`,`top`,`elementid`,`position`) VALUES ('{$connid}','100','100','{$ponunit['id']}','left');";			
+			$db->query($sql_tree1);
+			$sql_tree2 = "INSERT INTO kabel_position (`connectid`,`left`,`top`,`elementid`,`position`) VALUES ('{$connid}','100','100','{$ponelement2['tree']}','left');";			
+			$db->query($sql_tree2);
+		}
+		exit;
+	break;	
+	case 'savefiber':
+		$gettypes = isset($_POST['gettypes']) ? Clean::int($_POST['gettypes']) : null;
+		$kabel = isset($_POST['kabel']) ? Clean::int($_POST['kabel']) : null;
+		$gettree  = isset($_POST['gettree']) ? Clean::int($_POST['gettree']) : null;
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$stmt = $pdo->prepare("SELECT * FROM ponelement WHERE id = :id LIMIT 1");
+		$stmt->execute([':id' => $id]);
+		$ponelement1 = $stmt->fetch(PDO::FETCH_ASSOC);
+		$stmt->execute([':id' => $gettypes]);
+		$ponelement2 = $stmt->fetch(PDO::FETCH_ASSOC);
+		if ($id && $kabel && $gettree && !empty($ponelement2['lan']) && !empty($ponelement1['lan'])) {
+			$geo = "[[" . substr($ponelement1['lan'], 0, 9) . "," . substr($ponelement1['lon'], 0, 9) . "],[" .substr($ponelement2['lan'], 0, 9) . "," . substr($ponelement2['lon'], 0, 9) . "]];";
+			$sql = "INSERT INTO fibers (geo, kabel, name, location1, conn1, tree1, location2, conn2, tree2) VALUES (:geo, :kabel, :name, :location1, :conn1, :tree1, :location2, :conn2, :tree2)";
+			$stmt = $pdo->prepare($sql);
+			$stmt->execute([
+				':geo' => $geo,
+				':kabel' => $kabel,
+				':name' => 'fiber' . $ponelement1['id'] . $ponelement2['id'],
+				':location1' => $ponelement1['unit_id'],
+				':conn1' => $ponelement1['id'],
+				':tree1' => $ponelement1['tree'],
+				':location2' => $ponelement2['unit_id'],
+				':conn2' => $ponelement2['id'],
+				':tree2' => $ponelement2['tree']
+			]);
+			$connid = $pdo->lastInsertId();			
+			$sql_pos = "INSERT INTO kabel_position (connectid, `left`, `top`, elementid, position) VALUES (:connectid, '100', '100', :elementid, :position)";
+			$stmt_pos = $pdo->prepare($sql_pos);
+			$stmt_pos->execute([':connectid' => $connid,':elementid' => $ponelement1['id'],':position'  => 'left']);
+			$stmt_pos->execute([':connectid' => $connid,':elementid' => $ponelement2['id'],':position'  => 'left']);
+			echo 'ok';
+		}else{
+			echo 'error';
+		}
+		exit;
+	break;	
+	case 'mapper': 	
+		$marker = '';
+		$fibers = '';
+		$mapper = getMap();
+		if(!$id){
+			$go->redirect('fiber');
+		}
+		$ponbox = $db->Fast('ponelement','*',['id'=>$id]);
+		if(empty($ponbox['id'])){
+			$go->redirect('fiber');
+		}
+		$pontree = $db->Fast('pontree','*',['id'=>$ponbox['tree']]);
+		$ponunit = $db->Fast('ponunit','*',['id'=>$ponbox['unit_id']]);
+		$location_id = $ponbox['location'] ?? $ponunit['location'];
+		$poncity = $db->Fast('location','*',['id'=>$location_id]);
+		$sqlponelement = $db->Multi('ponelement','*',['location'=>$location_id]);
+		if(count($sqlponelement)){
+			foreach($sqlponelement as $element){
+				$marker .= types_box_add($element);
+			}
+		}
+		$sqlponfiber = $db->Multi('fibers','*',['location1'=>$poncity['id']]);
+		if(isset($sqlponfiber) && count($sqlponfiber)>0){
+			$getfiber = get_list_kabel();
+			foreach($sqlponfiber as $fiber){
+				if(!empty($fiber['geo'])){
+					$fibers .= getFibers_edit($fiber);
+				}
+			}
+		}
+		$lan = (!empty($pontree['lan'])?$pontree['lan']:$poncity['lan']);
+		$lon = (!empty($pontree['lon'])?$pontree['lon']:$poncity['lon']);
+		$metatags = array('title'=>$lang['vols_ponmap'].' '.$sqlcity['name'],'description'=>$lang['vols_ponmap'],'page'=>'map');
+		$resutltpl .= ponjs();
+		$bar_tpl .= '<div class="nav-bar">';
+		$bar_tpl .= '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=tree"><i class="fi fi-rr-apps"></i>'.$lang['volsmeraja'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=tree"><i class="fi fi-rr-angle-left"></i>'.$poncity['name'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=viewtree&id='.$pontree['id'].'"><i class="fi fi-rr-angle-left"></i>'.$pontree['name'].'</a>';
+		$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>'.$lang['adde_pon_map'].'</span>';
+		$bar_tpl .= '</div>';
+		#$resutltpl .= mapper_add($ponbox['id'],$lan,$lon,$mapper,$marker,$fibers);
+$text = '<h2>'.$ponbox['name'].' '.$lang['add_mapa'].'<br></h2>';
+$resutlunittpl = <<<HTML
+<div id="module_map"><div id="map"></div></div>
+<script>
+var typesbox = '{$ponbox['id']}';
+var center = [{$lan},{$lon}];
+var map = L.map('map').setView(center, 16);
+{$fibers}
+{$mapper}
+{$marker}
+var popup = L.popup()
+map.on('click', function(e) {
+popup.setLatLng(e.latlng).setContent('<form action="/?do=fiber&act=geo&type=1" method="post">{$text}<input type="hidden" name="lan" value="'+ e.latlng.lat +'"><input type="hidden" name="lon" value="'+ e.latlng.lng +'"><input type="hidden" name="element" value="'+ typesbox +'"><input type="submit" value="Зберегти"></form>').openOn(map);
+});
+</script>
+HTML;
+	$resutltpl .= '
+		<div class="container">
+			<div class="left-column">'. $leftMenu .'</div>
+			<div class="right-column">'. $resutlunittpl.'</div>
+		</div>';
+	break;	
+	case 'editfiber': 	
+		require MODULE_FIBER.'editfiber.php';
+		break;
+	case 'map': 
+		require MODULE_FIBER.'map.php';
+		break;		
+	case 'saveunitmap': 	
+		$getunit = isset($_POST['getunit']) ? Clean::int($_POST['getunit']) : null;
+		$lan = isset($_POST['lan']) ? Clean::text($_POST['lan']) : null;
+		$lon = isset($_POST['lon']) ? Clean::text($_POST['lon']) : null;
+		$ponunit = $db->Fast('ponunit', '*', ['id' => $getunit]);
+		if ($lan && $lon && $getunit>0 && !empty($ponunit['id'])) {
+			$db->SQLupdate('ponunit', ['lan' => $lan, 'lon' => $lon, 'types' => 1], ['id' => $ponunit['id']]);
+			$go->go('/?do=fiber&act=map&unit=' . $ponunit['id']);
+		} else {
+			$go->go('/?do=fiber');
+		}	
+	break;	
+	case 'saveposition': 
+		$id = (isset($_POST['id'])?Clean::int($_POST['id']):null);
+		$getfiber = $db->Fast('fibers','*',['id'=>$id]);
+		if(!empty($getfiber['id']) && isset($_POST['geo'])) {
+			$geo = '['.rtrim(Clean::text($_POST['geo']), ',').'];';			
+			$db->SQLupdate('fibers',['geo'=>$geo],['id'=>$id]);
+		}
+	break;	
+	case 'geo': 	
+		$type = isset($_GET['type']) ? Clean::int($_GET['type']) : null;
+		$element = isset($_POST['element']) ? Clean::int($_POST['element']) : null;
+		$lan = isset($_POST['lan']) ? Clean::text($_POST['lan']) : null;
+		$lon = isset($_POST['lon']) ? Clean::text($_POST['lon']) : null;
+		$ponelement = $db->Fast('ponelement', '*', ['id' => $element]);
+
+		if ($type == 1 && $lan && $lon && $element && !empty($ponelement['id'])) {
+			$db->SQLupdate('ponelement', ['lan' => $lan, 'lon' => $lon], ['id' => $ponelement['id']]);
+			$go->go('/?do=fiber&act=viewtree&id=' . $ponelement['tree']);
+		} else {
+			$go->go('/?do=fiber');
+		}
+		exit;
+	break;	
+	case 'updatetree': 	
+		$sqlset = array();
+		$sqlset['location'] = isset($_POST['location']) ? Clean::int($_POST['location']) : null;
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$sqlset['name'] = isset($_POST['name']) ? Clean::text($_POST['name']) : null;
+		$sqlset['lan'] = isset($_POST['lan']) ? Clean::text($_POST['lan']) : null;
+		$sqlset['lon'] = isset($_POST['lon']) ? Clean::text($_POST['lon']) : null;
+		if (!empty($sqlset['lon']) && !empty($sqlset['lan']) && !empty($sqlset['name']) && !empty($sqlset['location']) && isset($id)) {
+			$db->SQLupdate('pontree', $sqlset, ['id' => $id]);
+			$go->go('/?do=fiber&act=viewtree&id=' . $id);
+		} else {
+			$go->go('/?do=fiber&act=tree');
+		}
+	break;	
+	case 'savetree': 
+		$sqlinsert = array();
+		$sqlinsert['unit_id'] = isset($_POST['unit']) ? Clean::int($_POST['unit']) : null;
+		$sqlinsert['mereja'] = isset($_POST['mereja']) ? Clean::text($_POST['mereja']) : null;
+		$sqlinsert['name'] = isset($_POST['name']) ? Clean::text($_POST['name']) : null;
+		$sqlinsert['lan'] = isset($_POST['lan']) ? Clean::text($_POST['lan']) : null;
+		$sqlinsert['lon'] = isset($_POST['lon']) ? Clean::text($_POST['lon']) : null;
+		if (!empty($sqlinsert['unit_id'])) {
+			#$sql_unit = $db->Fast('ponunit', '*', ['id' => $sqlinsert['unit_id']]);
+			#$sqlinsert['location'] = $sql_unit['location'];
+		}
+		if (!empty($sqlinsert['name']) && !empty($sqlinsert['unit_id'])) {
+			$db->SQLinsert('pontree', $sqlinsert);
+			$go->go('/?do=fiber&act=viewunit&id=' . $sqlinsert['unit_id']);
+		} else {
+			$go->go('/?do=fiber&act=tree');
+		}
+	break;	
+	case 'kabel': 
+		$bar_tpl .= '<div class="nav-bar">';
+		$bar_tpl .= '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=tree"><i class="fi fi-rr-apps"></i>'.$lang['volsmeraja'].'</a>';
+		$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>'.$lang['catalogvok'].'</span>';
+		$bar_tpl .= '</div>';
+		$resutltpl .= '<div class="nav-fiber">';
+		$resutltpl .= '<a href="/?do=fiber&act=addkabel">'.$lang['add'].'</a>';
+		$resutltpl .= '</div>';
+		$sqlkabel = $db->Multi('kabel');
+		$resutltpl .= "<table border=\"0\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" align=\"left\" class=\"satellite_fiber\"><tr><th></th><th></th><th>Модель / волокон</th><th>Опис</th><th></th></tr>";
+		if(count($sqlkabel)){
+			foreach($sqlkabel as $kabel){
+			$sqlponfiber = $db->Simple('Select count(id) as count from fibers where kabel = '.$kabel['id']);
+			$resutltpl .= "<tr><td class=\"i-fib\"><img src=\"../style/img/icon1.png\"></td><td class=\"f-color\"><span style=\"background:".$kabel['color'].";\"></span></td>";
+			$resutltpl .= "<td class=\"f-kabel\"><h2>".$kabel['name']."";
+			$resutltpl .= "<a class=\"fiber_url\" href=\"/?do=fiber&act=editkabel&id=".$kabel['id']."\">Редагувати</a>";
+			if($sqlponfiber['count']==0){
+				$resutltpl .= "<a class=\"fiber_url\" href=\"/?do=fiber&act=delkabel&id=".$kabel['id']."\">Видалити</a>";
+			}
+			$resutltpl .= "</h2>";
+			$resutltpl .= "<span>Всього волокон: <b>".$kabel['modules']*$kabel['volokon']."</b></span></td>";
+			$resutltpl .= "</tr>";	
+			}
+		}
+		$resutltpl .= "</table>";
+		$metatags = array('title'=>$lang['volskab'],'description'=>$lang['volskab'],'page'=>'kabel');	
+	break;	
+	case 'delconnkabel': 	
+		$id = isset($_GET['id']) ? Clean::int($_GET['id']): null;
+		$t = isset($_GET['t']) ? Clean::text($_GET['t']): null;
+		$p = isset($_GET['p']) ? Clean::int($_GET['p']): null;
+		if(isset($id) && $id>0){
+			$db->SQLdelete('fibers',['id' => $id]);
+		}
+		if(isset($t) && $t=='view'){
+			$go->go('/?do=fiber&act=viewtree&id='.$p);
+		}else{
+			$go->go('/?do=fiber&act=map');
+		}
+		exit;
+	break;	
+	case 'delkabel': 
+		if($access->get('edit_ponbox')){
+			$id = isset($_GET['id']) ? Clean::int($_GET['id']): null;
+			if(isset($id) && $id>0){
+				$sqlponfiber = $db->Multi('fibers','*',['kabel'=>$id]);
+				if(!count($sqlponfiber)){
+					delete_kabel($id);
+				}
+			}
+		}
+		$go->go('/?do=fiber&act=kabel');
+		die;
+	break;	
+	case 'savekabel': 
+		$kabelid = 0;
+		$moduleCount = isset($_POST['modules']) ? Clean::int($_POST['modules']): null;
+		$volokonCount = isset($_POST['volokon']) ? Clean::int($_POST['volokon']): null;
+		if($moduleCount>0 && $volokonCount>0 && isset($_POST['name'])){
+			$volColors = array();
+			if ($moduleCount > 0) {
+				for ($j = 1; $j <= $moduleCount; $j++) {
+					$moduleVolColors = array();
+					for ($i = 1; $i <= $volokonCount; $i++) {
+						$volColor = $_POST['vol' . $j . '_' . $i];
+						$moduleVolColors[$i] = $volColor;
+					}
+					$volColors[$j]['volokno_color'] = $moduleVolColors;
+					$volColors[$j]['modul_color'] = $_POST['mod' . $j];
+				}
+			}
+			$sqlinsert['name'] = isset($_POST['name']) ? Clean::text($_POST['name']): null;
+			$sqlinsert['volokon'] = isset($_POST['volokon']) ? Clean::int($_POST['volokon']): null;
+			$sqlinsert['modules'] = isset($_POST['modules']) ? Clean::int($_POST['modules']): null;
+			$sqlinsert['color'] = isset($_POST['color']) ? Clean::text($_POST['color']): null;
+			if(!empty($sqlinsert['name']) && !empty($sqlinsert['volokon']) && !empty($sqlinsert['modules']) && !empty($sqlinsert['color'])){
+				$db->SQLinsert('kabel',$sqlinsert);
+				$kabelid = $db->getInsertId();
+			}
+			if(isset($kabelid) && $kabelid>0){
+				foreach($volColors as $moduleid => $kabdata){
+						$kabel_module = array('kabelidid'=>$kabelid,'moduleid'=>$moduleid,'modulecolor'=>$kabdata['modul_color']);
+						$db->SQLinsert('kabel_module',$kabel_module);
+					foreach($kabdata['volokno_color'] as $voloknoid => $voloknodata){
+						$kabel_volokno = array('kabelidid'=>$kabelid,'voloknoid'=>$voloknoid,'moduleid'=>$moduleid,'voloknocolor'=>$voloknodata);
+						$db->SQLinsert('kabel_volokno',$kabel_volokno);
+					}
+				}
+			}
+		}
+		$go->go('/?do=fiber&act=kabel');
+		die;
+	break;	
+	case 'updatekabel': 	
+		$kabelid = isset($_POST['kabelidid']) ? Clean::int($_POST['kabelidid']): null;
+		$moduleCount = isset($_POST['modules']) ? Clean::int($_POST['modules']): null;
+		$volokonCount = isset($_POST['volokon']) ? Clean::int($_POST['volokon']): null;
+		if($moduleCount>0 && $volokonCount>0){
+			if(isset($_POST['name']) && !empty($_POST['name'])){
+				$config_kabel['name'] = isset($_POST['name']) ? Clean::text($_POST['name']): null;
+			}
+			if(isset($_POST['color']) && !empty($_POST['color'])){
+				$config_kabel['color'] = isset($_POST['color']) ? Clean::text($_POST['color']): null;
+			}
+			$db->SQLupdate('kabel',$config_kabel,['id'=>$kabelid]);	
+			$sqlkabelmodule = $db->Multi('kabel_module','*',['kabelidid'=>$kabelid]);
+			if(isset($sqlkabelmodule) && count($sqlkabelmodule)>0){
+				foreach($sqlkabelmodule as $kabid => $kabdata){		
+					if(isset($kabdata['id'])){
+						$module_color = isset($_POST['mod'.$kabdata['id']]) ? Clean::text($_POST['mod'.$kabdata['id']]): null;
+						if(isset($kabdata['modulecolor']) && isset($_POST['mod'.$kabdata['id']]) && $kabdata['modulecolor']!=$module_color){
+							$config_kabel_m['modulecolor'] = $module_color;
+							$db->SQLupdate('kabel_module',$config_kabel_m,['kabelidid'=>$kabdata['id']]);	
+						}
+						$sqlkabelvolokna = $db->Multi('kabel_volokno','*',['kabelidid'=>$kabelid,'moduleid'=>$kabdata['moduleid']]);
+						foreach($sqlkabelvolokna as $voloknoid => $voloknodata){
+							$volokno_color = isset($_POST['vol'.$voloknodata['moduleid'].'_'.$voloknodata['id']]) ? Clean::text($_POST['vol'.$voloknodata['moduleid'].'_'.$voloknodata['id']]): null;
+							$volokno_krapochka = isset($_POST['mark'.$voloknodata['moduleid'].'_'.$voloknodata['id']]) ? Clean::text($_POST['mark'.$voloknodata['moduleid'].'_'.$voloknodata['id']]): null;
+							if($voloknodata['voloknocolor']!=$volokno_color){
+								$db->SQLupdate('kabel_volokno',['voloknocolor'=>$volokno_color],['id'=>$voloknodata['id']]);
+									
+							}
+							if($voloknodata['krapochka']!=$volokno_krapochka){								
+								$db->SQLupdate('kabel_volokno',['krapochka'=>($volokno_krapochka=='on'?1:2)],['id'=>$voloknodata['id']]);
+							}
+						}
+					}
+				}
+			}
+		}
+		$go->go('/?do=fiber&act=editkabel&id='.$kabelid);
+	break;	
+	case 'editkabel': 	
+		$volokna = '';
+		$id = isset($_GET['id']) ? Clean::int($_GET['id']): null;
+		if(isset($id) && $id>0){
+			$sqlkabel = $db->Fast('kabel','*',['id'=>$id]);
+			if(isset($sqlkabel) && !empty($sqlkabel['id'])){
+				$metatags = array('title'=>$sqlkabel['name'],'description'=>$sqlkabel['name'],'page'=>'editkabel');
+				$bar_tpl .= '<div class="nav-bar">';
+				$bar_tpl .= '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>';
+				$bar_tpl .= '<a href="/?do=fiber&act=tree"><i class="fi fi-rr-apps"></i>'.$lang['volsmeraja'].'</a>';
+				$bar_tpl .= '<a href="/?do=fiber&act=kabel"><i class="fi fi-rr-angle-left"></i>'.$lang['catalogvok'].'</a>';
+				$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>'.$lang['newvok'].'</span>';
+				$bar_tpl .= '</div>';
+				$sqlkabelmodule = $db->Multi('kabel_module','*',['kabelidid'=>$id]);
+				if(isset($sqlkabelmodule) && count($sqlkabelmodule)>0){
+					$volokna .= '<input type="hidden" id="kabelidid" name="kabelidid" value="'.$id.'">';
+					foreach($sqlkabelmodule as $kabid => $kabdata){		
+						$volokna .= '<div id="moduleblock"><div class="namemodule"><span>'.$lang['module_color'].' #'.$kabdata['id'].'</span><input class="selcolor" type="color" id="mon'.$kabdata['id'].'" name="mod'.$kabdata['id'].'" value="'.$kabdata['modulecolor'].'"></div>';
+						$sqlkabelvolokna = $db->Multi('kabel_volokno','*',['kabelidid'=>$kabdata['kabelidid'],'moduleid'=>$kabdata['moduleid']]);
+						foreach($sqlkabelvolokna as $voloknoid => $voloknodata){
+							$volokna .= '<label><span>'.$lang['volokno_color'].' #'.$voloknodata['id'].'</span> <input class="selcolor" type="color" id="vol'.$kabdata['moduleid'].'_'.$voloknodata['id'].'" name="vol'.$kabdata['moduleid'].'_'.$voloknodata['id'].'" value="'.$voloknodata['voloknocolor'].'">';
+							$volokna .= '<span> з маркером</span>  <input '.(isset($voloknodata['krapochka']) && $voloknodata['krapochka']==1 ? 'checked' : '').' type="checkbox" id="mark'.$kabdata['moduleid'].'_'.$voloknodata['id'].'" name="mark'.$kabdata['moduleid'].'_'.$voloknodata['id'].'"/></label>';
+						}
+						$volokna .= '</div>';
+					}
+					
+				}
+				$tpl->load_template('fiber/editfiber.tpl');
+				$tpl->set('{name}',$sqlkabel['name']);
+				$tpl->set('{volokon}',$sqlkabel['volokon']);
+				$tpl->set('{listfiber}',$volokna);
+				$tpl->set('{modules}',$sqlkabel['modules']);
+				$tpl->set('{color}',$sqlkabel['color']);
+				$tpl->compile('addfiber');
+				$tpl->clear();		
+				$resutltpl =  $tpl->result['addfiber'];	
+			} else{
+				$go->go('/?do=fiber&act=kabel');
+			}
+		}
+		else{
+			$go->go('/?do=fiber&act=kabel');
+		}
+	break;	
+	case 'tree': 
+		$locationid = isset($_GET['location']) ? Clean::int($_GET['location']): null;
+		$pontree = [];	
+		$ponlocation = [];	
+		$sqlpontree = $db->Multi('pontree');
+		if(count($sqlpontree)){
+			foreach($sqlpontree as $ptree){
+				$pontree[$ptree['location']][$ptree['id']]['name'] = $ptree['name'];
+				$pontree[$ptree['location']][$ptree['id']]['id'] = $ptree['id'];
+				$pontree[$ptree['location']][$ptree['id']]['city'] = $ptree['location'];
+			}
+		}	
+		$metatags = array('title'=>$lang['newvok'],'description'=>$lang['newvok'],'page'=>'addkabel');
+		$bar_tpl .= '<div class="nav-bar">';
+		$bar_tpl .= '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=tree"><i class="fi fi-rr-apps"></i>'.$lang['volsmeraja'].'</a>';		
+		if($locationid){
+			$sqllocation = $db->Multi('location','*',['id'=>$locationid]);
+			$getlocation = $db->Fast('location','*',['id'=>$locationid]);
+			$bar_tpl .= '<a href="/?do=fiber&act=tree"><i class="fi fi-rr-angle-left"></i>'.$lang['listlocation'].'</a>';
+			$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>'.$getlocation['name'].'</span>';
+		}else{
+			$sqllocation = $db->Multi('location');
+			$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>'.$lang['listlocation'].'</span>';
+		}		
+		$bar_tpl .= '</div>';
+		if(count($sqllocation)>0){
+			foreach($sqllocation as $loc){
+				$ponlocation[$loc['id']] = array('name' => $loc['name'],'id' => $loc['id'],'lan' => $loc['lan'],'lon' => $loc['lon']);
+			}
+		}
+		if(is_array($pontree) && is_array($ponlocation)){
+			foreach($ponlocation as $location){
+				$resutltpl .= '<div class="block_tree">';
+				$resutltpl .= '<div class="tt_tree">
+					<h2><a href="/?do=fiber&act=tree&location='.$location['id'].'">'.$location['name'].'</a></h2>';
+				$resutltpl .= '<div class="add_pon">
+				<a href="'.(!empty($location['lan'])?'/?do=fiber&act=addtree&location='.$location['id'].'':'#').'">Додати мережу</a>
+				<a href="'.(!empty($location['lan'])?'/?do=fiber&act=map&locationid='.$location['id'].'':'#').'">Переглянути покриття</a>
+				</div></div>';
+				if(!empty($location['lan']) && !empty($location['lon'])){
+				$resutltpl .= '<table class="resp-tab"><thead><tr><th width="5%">Id</th><th width="25%">'.$lang['name'].'</th><th width="5%">'.$lang['pon_count'].'</th><th width="5%">'.$lang['count'].' ONU</th><th>'.$lang['information'].'</th></tr></thead><tbody>';
+				if(!empty($pontree[$location['id']])){
+					foreach($pontree[$location['id']] as $tree){
+						$countpontree = $db->Simple('SELECT count(id) as count_id FROM ponelement WHERE tree = '.$tree['id']);
+						$countonutree = $db->Simple('SELECT count(id) as count_onu FROM onusdata WHERE pontree = '.$tree['id']);
+				$resutltpl .= '<tr>				
+				<td>#'.$tree['id'].'</td>
+				<td><a href="/?do=fiber&act=viewtree&id='.$tree['id'].'">'.$tree['name'].'</a></td>
+				<td>'.($countpontree['count_id']>0?'<div>'.$countpontree['count_id'].'</div>':'').'</td>
+				<td>'.($countonutree['count_onu']>0?'<div>'.$countonutree['count_onu'].'</div>':'').'</td>
+				<td></td>
+				</tr>';
+					}
+				}else{
+					
+				}
+				$resutltpl .= '</tbody></table>';
+				}else{
+					$resutltpl .= '<div class="error_geo">'.$lang['empty_geo_location'].' <a href="/?do=location&id='.$location['id'].'">'.$lang['addeds'].'</a></div>';
+				}
+				$resutltpl .= '</div>';
+			}
+		}
+		$metatags = array('title'=>$lang['volsmeraja'],'description'=>$lang['volsmeraja'],'page'=>'tree');	
+	break;
+	case 'updateunit': 	
+		$sqlset = array();
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$sqlset['name'] = isset($_POST['name']) ? Clean::text($_POST['name']) : null;
+		$sqlset['note'] = isset($_POST['note']) ? Clean::text($_POST['note']) : null;
+		$location = isset($_POST['location']) ? Clean::int($_POST['location']) : null;
+		$city = $db->Fast('location', '*', ['id' => $location]);
+		if (isset($city['id']) && $city['id'] > 0) {
+			$sqlset['location'] = $city['id'];
+		}
+		if (!empty($sqlset['name']) && isset($id) && $id > 0) {
+			$db->SQLupdate('ponunit', $sqlset, ['id' => $id]);
+			if (isset($sqlset['location']) && $sqlset['location'] > 0) {
+				$db->query("UPDATE pontree SET location = '{$sqlset['location']}' WHERE unit_id = '{$id}'");
+				$db->query("UPDATE ponelement SET location = '{$sqlset['location']}' WHERE unit_id = '{$id}'");
+			}
+			$go->go('/?do=fiber&act=editunit&id=' . $id);
+		} else {
+			$go->go('/?do=fiber&act=tree');
+		}	
+	break;
+	case 'deletunit': 	
+		$id = isset($_GET['id']) ? Clean::int($_GET['id']) : null;
+		if (isset($id) && $id > 0 && $access->get('edit_ponbox')){
+			$sql_unit = $db->Fast('ponunit', '*', ['id' => $id]);
+			if (isset($sql_unit['id']) && $sql_unit['id'] > 0) {
+				$count = $db->Simple('SELECT COUNT(id) as count_id FROM pontree WHERE unit_id = ' . $sql_unit['id']);
+				if (isset($count['count_id']) && $count['count_id'] == 0) {
+					$db->SQLdelete('ponunit', ['id' => $sql_unit['id']]);
+				}
+			}
+		}
+		$go->go('/?do=fiber&act=tree');
+		exit;
+	break;
+	case 'editunit': 	
+		$id = isset($_GET['id']) ? Clean::int($_GET['id']): null;
+		if(isset($id) && $id>0 && $access->get('edit_ponbox')){
+			$stmt = $pdo->prepare('SELECT * FROM ponunit WHERE id = :id LIMIT 1');
+			$stmt->execute([':id' => (int)$id]);
+			$sql_unit = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];	
+			$listlocation = '';
+			$location = getListLocations();
+			if(is_array($location) && $location!=false){
+				foreach($location as $loc){
+					if(!empty($loc['id'])){
+						$listlocation .= '<option value="'.$loc['id'].'" '.($sql_unit['location']==$loc['id']?' selected':'').'>'.$loc['name'].'</option>';
+					}
+				}
+			}
+			$metatags = array('title'=>''.$lang['volsmeraja'].'','description'=>''.$lang['volsmeraja'].'','page'=>'editunit');
+			$bar_tpl .= '<div class="nav-bar">
+				<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>
+				<a href="?do=fiber&act=unit"><i class="fi fi-rr-angle-left"></i>'.$lang['volsmeraja'].'</a>
+				<span class="active"><i class="fi fi-rr-angle-left"></i>Налаштування '.$sql_unit['name'].'</span>
+			</div>';
+			$resutltpl .= '
+			<div class="nav-fiber p10 m10">
+				<form action="/?do=fiber" method="post">
+					<input name="id" type="hidden" value="'.$sql_unit['id'].'">
+					<input name="act" type="hidden" value="updateunit">
+					<label for="name">'.$lang['location'].':</label>
+					<select class="select" name="location" id="location">
+					<option value="0"></option>'.$listlocation.'</select></br>
+					<label for="name">'.$lang['name'].':</label>
+					<input type="text" id="name" name="name" required autocomplete="off" value="'.$sql_unit['name'].'"><br>
+					<textarea id="note" name="note">'.$sql_unit['note'].'</textarea><br>
+					<input type="submit" value="'.$lang['add'].'"></br>
+					<a href="/?do=fiber&act=addmapper&id='.$sql_unit['id'].'&unit='.$sql_unit['id'].'">'.$lang['fiber_edit_geo'].'</a>';
+					$stmt = $pdo->prepare('SELECT COUNT(*) AS count_id FROM pontree WHERE unit_id = :unit_id');
+					$stmt->execute([':unit_id' => (int)$sql_unit['id']]);
+					$countpontree = $stmt->fetchColumn();
+					$resutltpl .= (isset($countpontree) && $countpontree==0 ? '<a href="/?do=fiber&act=deletunit&id='.$sql_unit['id'].'">'.$lang['delete'].'</a>':'').'
+				</form>
+			</div>';
+		}else{
+			$go->go('/?do=fiber&act=unit');
+		}		
+	break;
+	case 'viewunit':
+		require MODULE_FIBER.'viewunit.php';	
+	break;		
+	case 'addunit':
+		require MODULE_FIBER.'addunit.php';	
+	break;	
+	case 'unit':
+		$metatags = ['title' => $lang['volsmeraja'],'description' => $lang['volsmeraja'],'page' => 'ponunit'];
+		$bar_tpl .= '<div class="nav-bar"><a href="/"><i class="fi fi-rr-apps"></i>' . $lang['main'] . '</a><span class="active"><i class="fi fi-rr-angle-left"></i>'.$lang['volsmeraja'].'</span></div>';
+		$sql = "SELECT 
+					u.id, 
+					u.name, 
+					COALESCE(SUM(t.onu_online), 0) AS count_online, 
+					COALESCE(SUM(t.onu_offline), 0) AS count_offline, 
+					COUNT(t.id) AS count_tree 
+				FROM ponunit AS u 
+				LEFT JOIN pontree AS t ON t.unit_id = u.id 
+				GROUP BY u.id, u.name 
+				ORDER BY COALESCE(SUM(t.onu_offline), 0) DESC, COALESCE(SUM(t.onu_online) + SUM(t.onu_offline), 0) DESC, u.name ASC";
+		$stmt = $pdo->query($sql);
+		$units = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+		$reasonByUnit = [];
+		$sqlReason = "
+			SELECT
+				z.unit_id,
+				COUNT(DISTINCT CASE WHEN z.status = 2 THEN z.idonu END) AS offline_fact,
+				COUNT(DISTINCT CASE WHEN z.status = 2 AND z.offline >= (NOW() - INTERVAL 12 HOUR) THEN z.idonu END) AS offline_recent,
+				COUNT(DISTINCT CASE WHEN z.status = 2 AND z.reason = 'err6' THEN z.idonu END) AS err6_count,
+				COUNT(DISTINCT CASE WHEN z.status = 2 AND z.reason = 'err8' THEN z.idonu END) AS err8_count,
+				COUNT(DISTINCT CASE WHEN z.status = 2 AND (z.reason = 'err6' OR z.reason = 'err8') THEN z.idonu END) AS los_onu_count,
+				COUNT(DISTINCT CASE WHEN z.status = 2 AND (z.reason = 'err6' OR z.reason = 'err8') AND z.offline >= (NOW() - INTERVAL 12 HOUR) THEN z.idonu END) AS los_onu_recent
+			FROM (
+				SELECT pt.unit_id, od.pontree, o.olt, o.portolt, o.idonu, o.status, o.reason, o.offline
+				FROM onusdata od
+				INNER JOIN pontree pt ON pt.id = od.pontree
+				INNER JOIN onus o ON o.mac = od.onukey
+				UNION
+				SELECT pt.unit_id, od.pontree, o.olt, o.portolt, o.idonu, o.status, o.reason, o.offline
+				FROM onusdata od
+				INNER JOIN pontree pt ON pt.id = od.pontree
+				INNER JOIN onus o ON o.sn = od.onukey
+			) z
+			GROUP BY z.unit_id
+		";
+		$stmtReason = $pdo->query($sqlReason);
+		$rowsReason = $stmtReason ? $stmtReason->fetchAll(PDO::FETCH_ASSOC) : [];
+		foreach ($rowsReason as $rowReason) {
+			$uidReason = (int)($rowReason['unit_id'] ?? 0);
+			if ($uidReason <= 0) {
+				continue;
+			}
+			$reasonByUnit[$uidReason] = [
+				'offline_fact' => (int)($rowReason['offline_fact'] ?? 0),
+				'offline_recent' => (int)($rowReason['offline_recent'] ?? 0),
+				'err6_count' => (int)($rowReason['err6_count'] ?? 0),
+				'err8_count' => (int)($rowReason['err8_count'] ?? 0),
+				'los_onu_count' => (int)($rowReason['los_onu_count'] ?? 0),
+				'los_onu_recent' => (int)($rowReason['los_onu_recent'] ?? 0),
+				'los_group_count' => 0,
+				'los_group_recent_count' => 0,
+				'los_critical_group_count' => 0
+			];
+		}
+		$sqlReasonGroup = "
+			SELECT
+				z.unit_id,
+				COUNT(*) AS los_group_count,
+				SUM(CASE WHEN z.is_recent = 1 THEN 1 ELSE 0 END) AS los_group_recent_count,
+				SUM(CASE WHEN z.los_cnt >= 4 THEN 1 ELSE 0 END) AS los_critical_group_count
+			FROM (
+				SELECT
+					x.unit_id,
+					x.pontree,
+					x.olt,
+					x.portolt,
+					COUNT(DISTINCT x.idonu) AS los_cnt,
+					MAX(CASE WHEN x.offline >= (NOW() - INTERVAL 12 HOUR) THEN 1 ELSE 0 END) AS is_recent
+				FROM (
+					SELECT pt.unit_id, od.pontree, o.olt, o.portolt, o.idonu, o.status, o.reason, o.offline
+					FROM onusdata od
+					INNER JOIN pontree pt ON pt.id = od.pontree
+					INNER JOIN onus o ON o.mac = od.onukey
+					UNION
+					SELECT pt.unit_id, od.pontree, o.olt, o.portolt, o.idonu, o.status, o.reason, o.offline
+					FROM onusdata od
+					INNER JOIN pontree pt ON pt.id = od.pontree
+					INNER JOIN onus o ON o.sn = od.onukey
+				) x
+				WHERE x.status = 2
+				  AND (x.reason = 'err6' OR x.reason = 'err8')
+				  AND x.portolt IS NOT NULL
+				GROUP BY x.unit_id, x.pontree, x.olt, x.portolt
+				HAVING COUNT(DISTINCT x.idonu) >= 2
+			) z
+			GROUP BY z.unit_id
+		";
+		$stmtReasonGroup = $pdo->query($sqlReasonGroup);
+		$rowsReasonGroup = $stmtReasonGroup ? $stmtReasonGroup->fetchAll(PDO::FETCH_ASSOC) : [];
+		foreach ($rowsReasonGroup as $rowReasonGroup) {
+			$uidReasonGroup = (int)($rowReasonGroup['unit_id'] ?? 0);
+			if ($uidReasonGroup <= 0) {
+				continue;
+			}
+			if (!isset($reasonByUnit[$uidReasonGroup])) {
+				$reasonByUnit[$uidReasonGroup] = [
+					'offline_fact' => 0,
+					'offline_recent' => 0,
+					'err6_count' => 0,
+					'err8_count' => 0,
+					'los_onu_count' => 0,
+					'los_onu_recent' => 0,
+					'los_group_count' => 0,
+					'los_group_recent_count' => 0,
+					'los_critical_group_count' => 0
+				];
+			}
+			$reasonByUnit[$uidReasonGroup]['los_group_count'] = (int)($rowReasonGroup['los_group_count'] ?? 0);
+			$reasonByUnit[$uidReasonGroup]['los_group_recent_count'] = (int)($rowReasonGroup['los_group_recent_count'] ?? 0);
+			$reasonByUnit[$uidReasonGroup]['los_critical_group_count'] = (int)($rowReasonGroup['los_critical_group_count'] ?? 0);
+		}
+
+		$totalUnits = count($units);
+		$totalOnline = 0;
+		$totalOffline = 0;
+		$totalTrees = 0;
+
+		foreach ($units as &$u) {
+			$u['count_online'] = (int)$u['count_online'];
+			$u['count_offline'] = (int)$u['count_offline'];
+			$u['count_tree'] = (int)$u['count_tree'];
+			$u['count_all'] = $u['count_online'] + $u['count_offline'];
+			$uid = (int)$u['id'];
+			$u['offline_fact'] = (int)($reasonByUnit[$uid]['offline_fact'] ?? $u['count_offline']);
+			$u['offline_recent'] = (int)($reasonByUnit[$uid]['offline_recent'] ?? 0);
+			$u['err6_count'] = (int)($reasonByUnit[$uid]['err6_count'] ?? 0);
+			$u['err8_count'] = (int)($reasonByUnit[$uid]['err8_count'] ?? 0);
+			$u['los_onu_count'] = (int)($reasonByUnit[$uid]['los_onu_count'] ?? 0);
+			$u['los_onu_recent'] = (int)($reasonByUnit[$uid]['los_onu_recent'] ?? 0);
+			$u['los_group_count'] = (int)($reasonByUnit[$uid]['los_group_count'] ?? 0);
+			$u['los_group_recent_count'] = (int)($reasonByUnit[$uid]['los_group_recent_count'] ?? 0);
+			$u['los_critical_group_count'] = (int)($reasonByUnit[$uid]['los_critical_group_count'] ?? 0);
+			$u['is_alert'] = ($u['los_critical_group_count'] > 0 || $u['los_onu_count'] >= 8) ? 1 : 0;
+			$totalOnline += $u['count_online'];
+			$totalOffline += $u['count_offline'];
+			$totalTrees += $u['count_tree'];
+		}
+		unset($u);
+
+		$unitStyle = <<<CSS
+<style>
+.fiber-op-board{display:grid;gap:10px}
+.fiber-op-top{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.fiber-op-kpi{border:1px solid #dbe5f2;border-radius:10px;background:#fff;padding:10px}
+.fiber-op-kpi .k{font-size:11px;color:#64748b}
+.fiber-op-kpi .v{font-size:20px;font-weight:700;color:#0f172a;line-height:1.2}
+.fiber-op-kpi.warn .v{color:#b91c1c}
+.fiber-op-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fiber-op-search{flex:1 1 260px;height:36px;border:1px solid #d8e3f1;border-radius:9px;padding:0 10px;font-size:13px}
+.fiber-op-count{font-size:12px;color:#475569}
+.fiber-op-filter{height:36px;border:1px solid #d8e3f1;border-radius:9px;padding:0 10px;font-size:13px;background:#fff}
+.fiber-op-actions{display:flex;gap:8px;flex-wrap:wrap}
+.fiber-op-actions .f_me{display:flex;align-items:center;gap:6px;height:32px;max-height:32px;line-height:32px;background:#fff;border:1px solid #dbe5f2;border-radius:8px;padding:0 9px;text-decoration:none;color:#0f172a;font-size:11px;white-space:nowrap}
+.fiber-op-actions .f_me:hover{background:#f8fbff}
+.fiber-op-actions .f_me svg{height:14px;width:14px;margin-right:2px;flex:0 0 auto}
+.fiber-op-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}
+.fiber-op-card{display:block;border:1px solid #dbe5f2;border-radius:9px;background:#fff;padding:8px;text-decoration:none;transition:.15s;border-left:4px solid #cbd5e1}
+.fiber-op-card:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(15,23,42,.08)}
+.fiber-op-card.alert{border-left-color:#ef4444;background:linear-gradient(180deg,#fff 0%,#fff5f5 100%)}
+.fiber-op-card.warn{border-left-color:#f59e0b;background:linear-gradient(180deg,#fff 0%,#fffaf0 100%)}
+.fiber-op-card.ok{border-left-color:#16a34a}
+.fiber-op-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px}
+.fiber-op-name{font-size:12px;font-weight:700;color:#0f172a;line-height:1.2;word-break:break-word}
+.fiber-op-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:999px}
+.fiber-op-badge.alert{background:#fee2e2;color:#b91c1c}
+.fiber-op-badge.warn{background:#fef3c7;color:#92400e}
+.fiber-op-badge.ok{background:#dcfce7;color:#166534}
+.fiber-op-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.fiber-op-metric {
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 2px 4px;
+    line-height: 14px;
+}
+.fiber-op-metric .k{font-size:9px;color:#64748b}
+.fiber-op-metric .v{font-size:12px;font-weight:700;color:#0f172a}
+.fiber-op-metric .v.online{color:#15803d}
+.fiber-op-metric .v.offline{color:#b91c1c}
+.fiber-op-health{margin-top:6px}
+.fiber-op-health-bar{height:6px;border-radius:999px;background:#e2e8f0;overflow:hidden;display:flex}
+.fiber-op-health-on{height:6px;background:#16a34a}
+.fiber-op-health-off{height:6px;background:#ef4444}
+.fiber-op-health-text{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;font-size:10px;color:#475569}
+@media (max-width:1050px){.fiber-op-top{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+CSS;
+
+		$resutlunittpl = $unitStyle;
+		$resutlunittpl .= '<div class="fiber-op-board">';
+		$resutlunittpl .= '<div class="fiber-op-actions">
+			<a class="f_me" href="/?do=fiber&act=addunit">' . ($pmonimg['svg']['fiber_new']  ?? '') . ' '.$lang['newobj'].'</a>
+			<a class="f_me" href="/?do=fiber&act=move">' . ($pmonimg['svg']['fiber_move'] ?? '') . ' '.$lang['fiber_move_pon'].' PON</a>
+			<a class="f_me" href="/?do=fiber&act=kabel">' . ($pmonimg['svg']['fiber_cable']?? '') . ' '.$lang['fiber_cable'].'</a>
+			<a class="f_me" href="/?do=fiber&act=losboxes"><i class="fi fi-rr-triangle-warning"></i> LOS бокси</a>
+			<a class="f_me" href="/?do=topology">' . ($pmonimg['svg']['fiber_min_wifi'] ?? '') . ' Топологія PON</a>
+		</div>';
+		#$resutlunittpl .= '<div class="fiber-op-top">';
+		#$resutlunittpl .= '<div class="fiber-op-kpi"><div class="k">'.$lang['list'].'</div><div class="v">'.$totalUnits.'</div></div>';
+		#$resutlunittpl .= '<div class="fiber-op-kpi"><div class="k">PON '.$lang['fibber_connect_client'].'</div><div class="v">'.($totalOnline + $totalOffline).'</div></div>';
+		#$resutlunittpl .= '<div class="fiber-op-kpi"><div class="k">'.$lang['online'].'</div><div class="v">'.(int)$totalOnline.'</div></div>';
+		#$resutlunittpl .= '<div class="fiber-op-kpi warn"><div class="k">'.$lang['offline'].'</div><div class="v">'.(int)$totalOffline.'</div></div>';
+		#$resutlunittpl .= '</div>';
+		$resutlunittpl .= '<div class="fiber-op-toolbar">';
+		$resutlunittpl .= '<input id="fiberUnitSearch" class="fiber-op-search" type="text" placeholder="Пошук вузла...">';
+		$resutlunittpl .= '<select id="fiberUnitFilter" class="fiber-op-filter">
+			<option value="all">Усі</option>
+			<option value="alert">Критично</option>
+			<option value="warn">Попередження</option>
+			<option value="ok">Стабільно</option>
+		</select>';
+		$resutlunittpl .= '<div class="fiber-op-count">Показано: <span id="fiberUnitVisibleCount">0</span></div>';
+		$resutlunittpl .= '</div>';
+		$resutlunittpl .= '<div id="fiberUnitGrid" class="fiber-op-grid">';
+
+		if (!empty($units)) {
+			foreach ($units as $unit) {
+				$uid = (int)$unit['id'];
+				$uname = (string)$unit['name'];
+				$online = (int)$unit['count_online'];
+				$offline = (int)$unit['count_offline'];
+				$offlineFact = (int)$unit['offline_fact'];
+				$ponCount = (int)$unit['count_tree'];
+				$allPon = (int)$unit['count_all'];
+				$err6 = (int)$unit['err6_count'];
+				$err8 = (int)$unit['err8_count'];
+				$losOnu = (int)$unit['los_onu_count'];
+				$losOnuRecent = (int)$unit['los_onu_recent'];
+				$losGroups = (int)$unit['los_group_count'];
+				$losGroupsRecent = (int)$unit['los_group_recent_count'];
+				$losCriticalGroups = (int)$unit['los_critical_group_count'];
+				$offlineRecent = (int)$unit['offline_recent'];
+				$allFact = $online + $offlineFact;
+				$offlinePercent = ($allFact > 0) ? (($offlineFact / $allFact) * 100) : 0;
+				$isHighOffline = ($allFact > 0 && $offlinePercent >= 50);
+				$losShareRecent = ($offlineRecent > 0) ? ($losOnuRecent / $offlineRecent) : 0;
+				$isMassLos = ($losCriticalGroups >= 3) || ($losGroupsRecent >= 4 && $losOnuRecent >= 10);
+				$isHighLosDominance = ($losOnuRecent >= 8 && $losShareRecent >= 0.8);
+				$hasMeaningfulLos = ($losGroupsRecent > 0 || $losOnuRecent >= 3 || ($losOnuRecent >= 1 && $offlineRecent >= 12));
+				$cardClass = 'ok';
+				$badgeClass = 'ok';
+				$badgeText = 'Стабільно';
+				if (($isHighOffline && $losOnuRecent >= 6) || $isMassLos || $isHighLosDominance) {
+					$cardClass = 'alert';
+					$badgeClass = 'alert';
+					$badgeText = 'Аварія LOS';
+				} elseif ($hasMeaningfulLos) {
+					$cardClass = 'warn';
+					$badgeClass = 'warn';
+					$badgeText = 'Потрібна увага';
+				}
+				$unameSafe = htmlspecialchars($uname, ENT_QUOTES, 'UTF-8');
+				$unameSearch = htmlspecialchars(function_exists('mb_strtolower') ? mb_strtolower($uname, 'UTF-8') : strtolower($uname), ENT_QUOTES, 'UTF-8');
+				$onlinePct = ($allFact > 0) ? round(($online / $allFact) * 100, 1) : 0;
+				$offlinePct = ($allFact > 0) ? round(($offlineFact / $allFact) * 100, 1) : 0;
+
+				$resutlunittpl .= '
+					<a class="fiber-op-card ' . $cardClass . '" data-status="' . $cardClass . '" data-search="' . $unameSearch . '" href="/?do=fiber&act=viewunit&id=' . $uid . '">
+						<div class="fiber-op-head">
+							<div class="fiber-op-name">' . $unameSafe . '</div>
+							<div class="fiber-op-badge ' . $badgeClass . '">' . $badgeText . '</div>
+						</div>
+						<div class="fiber-op-metrics">
+							<div class="fiber-op-metric"><div class="k">PON гілки</div><div class="v">' . $ponCount . '</div></div>
+							<div class="fiber-op-metric"><div class="k">ONU всього</div><div class="v">' . $allPon . '</div></div>
+							<div class="fiber-op-metric"><div class="k">' . $lang['online'] . '</div><div class="v online">' . $online . '</div></div>
+							<div class="fiber-op-metric"><div class="k">' . $lang['offline'] . '</div><div class="v offline">' . $offlineFact . '</div></div>
+							<div class="fiber-op-metric"><div class="k">LOS | Обрив </div><div class="v offline">' . intval($err6 + $err8) . '</div></div>
+							<div class="fiber-op-metric"><div class="k">Групи LOS (12г)</div><div class="v">' . $losGroupsRecent . ' <span style="font-size:10px;color:#b91c1c">(крит:' . $losCriticalGroups . ')</span></div></div>
+						</div>
+						<div class="fiber-op-health">
+							<div class="fiber-op-health-bar">
+								<div class="fiber-op-health-on" style="width:' . $onlinePct . '%"></div>
+								<div class="fiber-op-health-off" style="width:' . $offlinePct . '%"></div>
+							</div>
+							<div class="fiber-op-health-text">
+								<span>Онлайн: ' . $onlinePct . '%</span>
+								<span>Офлайн: ' . $offlinePct . '%</span>
+							</div>
+						</div>
+					</a>';
+			}
+		} else {
+			$resutlunittpl .= '<div class="empty-note">'.$lang['empty'].'</div>';
+		}
+
+		$resutlunittpl .= '</div></div>';
+		$resutlunittpl .= <<<JS
+<script>
+(function(){
+  var input = document.getElementById('fiberUnitSearch');
+  var filter = document.getElementById('fiberUnitFilter');
+  var grid = document.getElementById('fiberUnitGrid');
+  var out = document.getElementById('fiberUnitVisibleCount');
+  if (!input || !filter || !grid || !out) { return; }
+  function normalize(v){ return String(v || '').toLowerCase(); }
+  function update(){
+    var q = normalize(input.value).trim();
+    var mode = normalize(filter.value);
+    var cards = grid.querySelectorAll('.fiber-op-card');
+    var shown = 0;
+    cards.forEach(function(card){
+      var name = normalize(card.getAttribute('data-search'));
+      var status = normalize(card.getAttribute('data-status'));
+      var searchOk = q === '' || name.indexOf(q) !== -1;
+      var filterOk = (mode === 'all')
+        || (mode === 'alert' && status === 'alert')
+        || (mode === 'warn' && status === 'warn')
+        || (mode === 'ok' && status === 'ok');
+      var visible = searchOk && filterOk;
+      card.style.display = visible ? '' : 'none';
+      if (visible) { shown++; }
+    });
+    out.textContent = String(shown);
+  }
+  input.addEventListener('input', update);
+  filter.addEventListener('change', update);
+  update();
+})();
+</script>
+JS;
+
+		$resutltpl .= '
+			<div class="container fiber-unit-full">
+				<div class="right-column" style="width:100%;">'. $resutlunittpl.'</div>
+			</div>';
+		break;
+	case 'losboxes':
+		$metatags = ['title' => 'Бокси LOS', 'description' => 'PON бокси, де всі ONU у LOS', 'page' => 'losboxes'];
+		$bar_tpl .= '<div class="nav-bar">'
+			. '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>'
+			. '<a href="/?do=fiber&act=unit"><i class="fi fi-rr-angle-left"></i>'.$lang['volsmeraja'].'</a>'
+			. '<span class="active"><i class="fi fi-rr-angle-left"></i>Бокси LOS</span>'
+			. '</div>';
+		$sqlLosBoxes = "
+			SELECT
+				pe.id,
+				pe.name,
+				pe.tree,
+				pt.name AS tree_name,
+				pu.id AS unit_id,
+				pu.name AS unit_name,
+				COUNT(DISTINCT m.idonu) AS onu_total,
+				COUNT(DISTINCT CASE WHEN m.status = 2 AND (m.reason = 'err6' OR m.reason = 'err8') THEN m.idonu END) AS los_total,
+				COUNT(DISTINCT CASE WHEN m.status = 2 AND (m.reason = 'err6' OR m.reason = 'err8') AND m.offline >= (NOW() - INTERVAL 12 HOUR) THEN m.idonu END) AS los_recent
+			FROM ponelement pe
+			LEFT JOIN pontree pt ON pt.id = pe.tree
+			LEFT JOIN ponunit pu ON pu.id = pt.unit_id
+			LEFT JOIN (
+				SELECT od.ponelement, o.idonu, o.status, o.reason, o.offline
+				FROM onusdata od
+				INNER JOIN onus o ON o.mac = od.onukey
+				WHERE od.ponelement > 0
+				UNION
+				SELECT od.ponelement, o.idonu, o.status, o.reason, o.offline
+				FROM onusdata od
+				INNER JOIN onus o ON o.sn = od.onukey
+				WHERE od.ponelement > 0
+			) m ON m.ponelement = pe.id
+			WHERE pe.types IN (2,17,18,19,20)
+			GROUP BY pe.id, pe.name, pe.tree, pt.name, pu.id, pu.name
+			HAVING COUNT(DISTINCT m.idonu) > 0
+			   AND COUNT(DISTINCT CASE WHEN m.status = 2 AND (m.reason = 'err6' OR m.reason = 'err8') THEN m.idonu END) = COUNT(DISTINCT m.idonu)
+			ORDER BY onu_total DESC, los_recent DESC, pe.name ASC
+		";
+		$stmtLosBoxes = $pdo->query($sqlLosBoxes);
+		$losBoxes = $stmtLosBoxes ? $stmtLosBoxes->fetchAll(PDO::FETCH_ASSOC) : [];
+		$resutltpl .= '
+		<style>
+		.los-box-board{display:grid;gap:10px}
+		.los-box-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+		.los-box-back{display:inline-flex;align-items:center;gap:6px;height:32px;border:1px solid #dbe5f2;background:#fff;border-radius:8px;padding:0 10px;text-decoration:none;color:#0f172a;font-size:12px}
+		.los-box-count{font-size:12px;color:#475569}
+		.los-box-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+		.los-box-card{display:block;border:1px solid #fecaca;background:linear-gradient(180deg,#fff 0%,#fff5f5 100%);border-left:4px solid #ef4444;border-radius:10px;padding:10px;text-decoration:none}
+		.los-box-title{font-size:13px;font-weight:700;color:#7f1d1d;line-height:1.25}
+		.los-box-tree{font-size:11px;color:#991b1b;margin-top:3px}
+		.los-box-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:8px}
+		.los-box-m{border:1px solid #fee2e2;border-radius:8px;padding:6px 7px;background:#fff}
+		.los-box-m .k{font-size:10px;color:#7f1d1d}
+		.los-box-m .v{font-size:14px;font-weight:700;color:#b91c1c}
+		.los-box-note{margin-top:8px;font-size:11px;color:#7f1d1d}
+		@media (max-width:680px){.los-box-grid{grid-template-columns:1fr}}
+		</style>
+		<div class="los-box-board">
+			<div class="los-box-toolbar">
+				<a class="los-box-back" href="/?do=fiber&act=unit"><i class="fi fi-rr-angle-left"></i>Назад до вузлів</a>
+				<div class="los-box-count">Знайдено боксів: <b>'.count($losBoxes).'</b></div>
+			</div>';
+		if (!empty($losBoxes)) {
+			$resutltpl .= '<div class="los-box-grid">';
+			foreach ($losBoxes as $box) {
+				$boxId = (int)$box['id'];
+				$boxName = htmlspecialchars((string)$box['name'], ENT_QUOTES, 'UTF-8');
+				$treeName = htmlspecialchars((string)($box['tree_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+				$unitName = htmlspecialchars((string)($box['unit_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+				$onuTotal = (int)($box['onu_total'] ?? 0);
+				$losTotal = (int)($box['los_total'] ?? 0);
+				$losRecent = (int)($box['los_recent'] ?? 0);
+				$resutltpl .= '
+					<a class="los-box-card" href="/?do=fiber&act=details&id='.$boxId.'">
+						<div class="los-box-title">'.$boxName.'</div>
+						<div class="los-box-tree">Гілка: '.$treeName.' | Вузол: '.$unitName.'</div>
+						<div class="los-box-metrics">
+							<div class="los-box-m"><div class="k">ONU всього</div><div class="v">'.$onuTotal.'</div></div>
+							<div class="los-box-m"><div class="k">ONU у LOS</div><div class="v">'.$losTotal.'</div></div>
+						</div>
+						<div class="los-box-note">LOS за 12г: '.$losRecent.'</div>
+					</a>';
+			}
+			$resutltpl .= '</div>';
+		} else {
+			$resutltpl .= '<div class="empty-note">Не знайдено боксів, де всі ONU у LOS.</div>';
+		}
+		$resutltpl .= '</div>';
+		break;
+	case 'addkabel': 
+		$metatags = array('title'=>$lang['newvok'],'description'=>$lang['newvok'],'page'=>'addkabel');
+		$bar_tpl .= '<div class="nav-bar">';
+		$bar_tpl .= '<a href="/"><i class="fi fi-rr-apps"></i>'.$lang['main'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=tree"><i class="fi fi-rr-angle-left"></i>'.$lang['volsmeraja'].'</a>';
+		$bar_tpl .= '<a href="/?do=fiber&act=kabel"><i class="fi fi-rr-angle-left"></i>'.$lang['catalogvok'].'</a>';
+		$bar_tpl .= '<span class="active"><i class="fi fi-rr-angle-left"></i>'.$lang['newvok'].'</span>';
+		$bar_tpl .= '</div>';
+		$tpl->load_template('fiber/addfiber.tpl');
+		$tpl->compile('addfiber');
+		$tpl->clear();		
+		$resutltpl =  $tpl->result['addfiber'];		
+		$metatags = array('title'=>$lang['newvolskab'],'description'=>$lang['newvolskab'],'page'=>'addkabel');
+	break;	
+	default:
+		$resutltpl .='';
+}
+$resutl_tpl .= '
+<div class="panel-fiber">
+<div class="r">
+'.$bar_tpl.'
+<div class="f">'.$resutltpl.'</div>
+</div>
+</div>'.$btnmap;
+$tpl->load_template('fiber.tpl');
+$tpl->set('{resutl}',$resutl_tpl);
+$tpl->compile('content');
+$tpl->clear();	
+###############################################
+$md = md5(time());
+$html = <<<HTML
+<title>{$metatags['title']}</title>
+<meta name="description" content="{$metatags['description']}" />
+HTML;
+$ajax = <<<HTML
+<script src="../style/js/jquery-3.6.0.min.js"></script>
+<script src="../style/js/jquery.cookies.js"></script>
+<script src="../style/js/script.js?do={$md}"></script>
+<script src="../style/editorpmon/d3.v7.min.js"></script>
+<script src="../style/editorpmon/editor.js?do={$md}"></script>
+HTML;
+$css = <<<HTML
+<link href="../style/css/styles.css?do={$md}" type="text/css" rel="stylesheet" />
+<link href="../style/css/engine.css" type="text/css" rel="stylesheet" />
+<link href="../style/css/font.css" type="text/css" rel="stylesheet" />
+<link href="../style/rounded/css/uicons-regular-rounded.css" rel="stylesheet">
+<link rel="stylesheet" href="../style/map/leaflet.css"/>
+HTML;
+// завантажуємо шаблон
+if($act=='view'){
+	$tpl->load_template('editorpm.tpl');	
+}else{
+	$tpl->load_template('fibermap.tpl');
+}
+$tpl->set('{html}',$html);
+$tpl->set('{ajax}',$ajax);
+$tpl->set('{css}',$css);
+if($act=='view'){
+	$tpl->set('{content}',$resutltpl);	
+}else{
+	$tpl->set('{content}',$tpl->result['content']);
+}
+$tpl->compile('main');
+echo $tpl->result['main'];
+$tpl->global_clear();
+die;
+?>

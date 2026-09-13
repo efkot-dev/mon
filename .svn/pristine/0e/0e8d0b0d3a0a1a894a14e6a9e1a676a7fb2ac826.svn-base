@@ -1,0 +1,104 @@
+DROP TABLE `installing`;
+CREATE TABLE `groupsaccess` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `gid` int(11) unsigned NOT NULL DEFAULT 0,
+  `types` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+CREATE TABLE `pmon_progress` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text,
+  `jobid` int(11) DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `deviceid` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `rxolt_signal` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `onu` int(11) DEFAULT NULL,
+  `signal` varchar(16) DEFAULT NULL,
+  `datetime` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_onu` (`onu`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `sgnal_sfp` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `sfpid` int(11) DEFAULT NULL,
+  `signal` varchar(16) DEFAULT NULL,
+  `datetime` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_sfp` (`sfpid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `bandwidth` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `monitor_id` int(11) DEFAULT NULL,
+  `port` varchar(200) DEFAULT NULL,
+  `type` varchar(200) DEFAULT NULL,
+  `in` varchar(200) DEFAULT NULL,
+  `out` varchar(200) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_id` (`monitor_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `switch_traffic` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `status` int(11) DEFAULT NULL,
+  `deviceid` int(11) DEFAULT NULL,
+  `portid` int(11) DEFAULT NULL,
+  `speedport` int(11) DEFAULT NULL,  
+  `port` varchar(16) DEFAULT NULL,
+  `monitor` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_device` (`deviceid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+
+CREATE TABLE `ponunit` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `photo` varchar(250) DEFAULT NULL,
+  `location` int(11) DEFAULT NULL,
+  `types` int(11) DEFAULT NULL,
+  `dostyp` int(11) DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `lan` text DEFAULT NULL,
+  `lon` text DEFAULT NULL,
+  `updates` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+ALTER TABLE pontree ADD `unit_id` int(11) DEFAULT NULL;
+ALTER TABLE pontree ADD `group_id` int(11) DEFAULT NULL;
+ALTER TABLE pontree ADD `types_id` int(11) DEFAULT NULL;
+ALTER TABLE pontree ADD `pon` int(11) DEFAULT NULL;
+ALTER TABLE pontree ADD `status` int(11) DEFAULT NULL;
+
+
+ALTER TABLE ponelement ADD `unit_id` int(11) DEFAULT NULL;
+ALTER TABLE ethelement ADD `unit_id` int(11) DEFAULT NULL;
+
+ALTER TABLE ponelement ADD perevirka DATETIME DEFAULT '1970-01-01 00:00:00';
+ALTER TABLE ponelement ADD added DATETIME DEFAULT '1970-01-01 00:00:00';
+
+ALTER TABLE pontree ADD `onu` int(11) DEFAULT NULL;
+ALTER TABLE pontree ADD `onu_online` int(11) DEFAULT NULL;
+ALTER TABLE pontree ADD `onu_offline` int(11) DEFAULT NULL;
+
+ALTER TABLE pontree ADD device text NULL DEFAULT NULL AFTER onu_offline;
+ALTER TABLE pontree ADD `device_id` int(11) DEFAULT NULL AFTER onu_offline;
+
+CREATE TABLE login_attempts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_address VARCHAR(45) NOT NULL,
+    attempts INT NOT NULL,
+    last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+

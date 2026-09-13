@@ -1,0 +1,176 @@
+:root{
+  --topo-bg: #ffffff;
+  --topo-canvas: #ffffff;
+  --topo-panel: #ffffff;
+  --topo-border: #dcdcdc;
+  --topo-text: #111111;
+  --topo-muted: #666666;
+  --topo-switch-fill: #fafafa;
+  --topo-switch-stroke: #111111;
+  --topo-port-stroke: #333333;
+  --topo-port-shell: #e0e0e0;
+  --topo-port-bound: #d6d6d6;
+  --topo-port-active-bg: #e8f5e9;
+  --topo-port-inactive-bg: #ffebee;
+  --topo-hover: #1565c0;
+  --topo-selected: #ff8f00;
+  --topo-link-hover-opacity: .75;
+  --topo-up: #00c853;
+  --topo-up-strong: #0a8f3c; /* fallback for link up-up */
+  --topo-link-up: #0a8f3c;
+  --topo-down: #d32f2f;
+  --topo-unknown: #9e9e9e;
+}
+
+body.topo-theme-dark{
+  --topo-bg: #0f1115;
+  --topo-canvas: #0f1115;
+  --topo-panel: #151923;
+  --topo-border: #2a3142;
+  --topo-text: #e6eaf2;
+  --topo-muted: #9aa6bf;
+  --topo-switch-fill: #151923;
+  --topo-switch-stroke: #c9d3e6;
+  --topo-port-stroke: #8e9bb5;
+  --topo-port-shell: #2a3142;
+  --topo-port-bound: #2f3850;
+  --topo-port-active-bg: #12301f;
+  --topo-port-inactive-bg: #351a1a;
+  --topo-hover: #64b5f6;
+  --topo-selected: #ffb74d;
+  --topo-unknown: #9e9e9e;
+}
+
+#topology-wrap{
+  background: var(--topo-bg) !important;
+  border-color: var(--topo-border) !important;
+  color: var(--topo-text);
+}
+#topology-wrap svg{
+  background: var(--topo-canvas) !important;
+}
+
+#topology-wrap #topoControls button{
+  background: var(--topo-panel);
+  color: var(--topo-text);
+  border: 1px solid var(--topo-border);
+}
+
+/* Modals have inline background/border, override to match theme */
+#topology-wrap #topoPortModal,
+#topology-wrap #topoSwitchModal,
+#topology-wrap #topoLinkModal,
+#topology-wrap #topoAddSwitchModal,
+#topology-wrap #topoColorsModal{
+  background: var(--topo-panel) !important;
+  border-color: var(--topo-border) !important;
+  color: var(--topo-text) !important;
+}
+#topology-wrap #topoPortModal * ,
+#topology-wrap #topoSwitchModal * ,
+#topology-wrap #topoLinkModal * ,
+#topology-wrap #topoAddSwitchModal * ,
+#topology-wrap #topoColorsModal *{
+  color: inherit;
+}
+
+#topology-wrap #topoPortModal input,
+#topology-wrap #topoPortModal select,
+#topology-wrap #topoPortModal textarea,
+#topology-wrap #topoSwitchModal input,
+#topology-wrap #topoSwitchModal select,
+#topology-wrap #topoSwitchModal textarea,
+#topology-wrap #topoLinkModal input,
+#topology-wrap #topoLinkModal select,
+#topology-wrap #topoLinkModal textarea,
+#topology-wrap #topoAddSwitchModal input,
+#topology-wrap #topoAddSwitchModal select,
+#topology-wrap #topoAddSwitchModal textarea,
+#topology-wrap #topoColorsModal input,
+#topology-wrap #topoColorsModal select,
+#topology-wrap #topoColorsModal textarea{
+  background: var(--topo-panel) !important;
+  color: var(--topo-text) !important;
+  border-color: var(--topo-border) !important;
+}
+
+#topology-wrap .switch-body { fill: var(--topo-switch-fill); stroke: var(--topo-switch-stroke); stroke-width: 2; }
+#topology-wrap .switch-title { font-size: 14px; font-weight: 700; user-select:none; fill: var(--topo-text); }
+#topology-wrap .switch-title .switch-model { font-weight: 300; fill: var(--topo-muted); font-size: 13px; }
+#topology-wrap image.node-icon { pointer-events: none; }
+#topology-wrap .port { stroke: var(--topo-port-stroke); stroke-width:1.5; cursor:pointer; }
+#topology-wrap .port.hover { stroke: var(--topo-hover); stroke-width:2.5; }
+#topology-wrap .port.selected { stroke: var(--topo-selected); stroke-width:3; }
+#topology-wrap .port-shell { fill: var(--topo-port-shell); }
+#topology-wrap .port-shell.bound { fill: var(--topo-port-bound); }
+#topology-wrap .port-shell.active { fill: var(--topo-port-active-bg); }
+#topology-wrap .port-shell.inactive { fill: var(--topo-port-inactive-bg); }
+#topology-wrap .port-side { stroke:none; }
+#topology-wrap .port-side.active { animation: topoBlink 1.1s infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes topoBlink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+#topology-wrap .link.blink-red { animation: topoRedBlink 1.8s infinite; }
+@keyframes topoRedBlink { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+#topology-wrap .link.locate { animation: topoLocateBlink 1.2s infinite; }
+@keyframes topoLocateBlink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+#topology-wrap .port-label { font-size: 12px; text-anchor: middle; user-select:none; pointer-events:none; fill: var(--topo-text); }
+#topology-wrap .link { fill:none; stroke-width:6; cursor:pointer; }
+#topology-wrap .link:hover { opacity: var(--topo-link-hover-opacity); }
+
+/* Toast notifications (top-right inside topology wrap) */
+#topology-wrap .topo-toasts{
+  position:absolute;
+  right:12px;
+  top:12px;
+  z-index:40;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  pointer-events:none;
+  max-width:min(420px, calc(100% - 24px));
+}
+#topology-wrap .topo-toast{
+  pointer-events:none;
+  background: var(--topo-panel);
+  border: 1px solid var(--topo-border);
+  color: var(--topo-text);
+  box-shadow: 0 4px 16px rgba(0,0,0,.18);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.3;
+  opacity: .98;
+}
+#topology-wrap .topo-toast .t-muted{ opacity: .8; font-size: 12px; }
+#topology-wrap .topo-toast.t-up{ border-left: 4px solid #0a8f3c; }
+#topology-wrap .topo-toast.t-down{ border-left: 4px solid #d32f2f; }
+#topology-wrap .topo-toast.t-unk{ border-left: 4px solid #9e9e9e; }
+@media (max-width: 720px), (max-height: 560px) {
+  #topology-wrap #topoPortModal,
+  #topology-wrap #topoSwitchModal,
+  #topology-wrap #topoLinkModal,
+  #topology-wrap #topoAddSwitchModal {
+    left: 8px !important;
+    right: auto !important;
+    top: 8px !important;
+    bottom: auto !important;
+    width: auto !important;
+    max-width: calc(100% - 16px) !important;
+    max-height: calc(100% - 16px) !important;
+  }
+}
+#topology-wrap #topoPortModal,
+#topology-wrap #topoSwitchModal,
+#topology-wrap #topoLinkModal,
+#topology-wrap #topoAddSwitchModal,
+#topology-wrap #topoColorsModal {
+  position: fixed !important;
+  left: 50% !important;
+  top: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%) !important;
+  width: min(420px, calc(100vw - 16px)) !important;
+  max-width: calc(100vw - 16px) !important;
+  max-height: calc(100vh - 16px) !important;
+  z-index: 9999 !important;
+}

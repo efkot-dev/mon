@@ -1,0 +1,51 @@
+CREATE TABLE mon_device (
+id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+dc TEXT,
+name TEXT,
+netip TEXT,
+snmpro TEXT,
+typebattery ENUM('12', '24', '48', '72') DEFAULT '12',
+oidvolt TEXT NULL,
+resultoidvolt TEXT NULL,
+oidenergy TEXT NULL,
+resultoidenergy TEXT NULL,
+volt TEXT NULL,
+energystatus ENUM('yes', 'no') DEFAULT 'no',
+energy VARCHAR(5) NULL,
+status0 VARCHAR(10) NULL,
+status20 VARCHAR(10) NULL,
+status40 VARCHAR(10) NULL,
+status60 VARCHAR(10) NULL,
+status80 VARCHAR(10) NULL,
+status100 VARCHAR(10) NULL,
+channel INT(11) NULL,
+energytime DATETIME,
+locationid INT(11) NULL,
+groups INT(11) NULL,
+types VARCHAR(30) NULL,
+sendtelegram ENUM('yes', 'no') DEFAULT 'no'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+CREATE TABLE monitor_temp (
+id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+name TEXT,
+netip TEXT,
+snmpro TEXT,
+device ENUM('olt', 'ping3', 'oid', 'switch', 'other','sfp','onu') DEFAULT 'other',
+oidtemp TEXT NULL,
+normal_temp TEXT NULL,
+critical_temp TEXT NULL,
+temp TEXT NULL,
+formula TEXT NULL,
+energy VARCHAR(5) NULL,
+channel INT(11) NULL,
+energytime DATETIME,
+locationid INT(11) NULL,
+groups INT(11) NULL,
+types VARCHAR(30) NULL,
+sendtelegram ENUM('yes', 'no') DEFAULT 'no'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+ALTER TABLE `monitor_temp`
+
+

@@ -1,0 +1,343 @@
+<?php
+define('AJAX',true);
+define('ROOT_DIR',substr( dirname( __FILE__),0,-5));
+define('ENGINE_DIR',ROOT_DIR.'/inc/');
+ini_set('output_buffering', 'Off');	
+require_once ENGINE_DIR.'ajax.php';
+require_once ENGINE_DIR.'init.info.php';
+$timeout = 1000000;
+$retries = 5;
+$inf = '';
+$sys_inf = '';
+if($_POST['id']){
+	$id = isset($_POST['id']) ? Clean::int($_POST['id']): null;
+	if($id>0){
+		$switch = $db->Fast('switch','*',['id'=>$id]);
+		/// ZTE C320
+		if(!empty($switch['id'])){
+			if($switch['oidid']==7){
+				@$resTypeSpeedFan = @snmp2_real_walk($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.3902.1015.2.1.3.10.10.10.1.7');
+				@$resTypeSlot = @snmp2_real_walk($switch['netip'], $switch['snmpro'], '1.3.6.1.4.1.3902.1015.2.1.1.3.1.4.1.1');
+				$rSlot = [];
+				if ($resTypeSlot !== false) {
+					$typeid = 1;
+					foreach ($resTypeSlot as $key => $type) {
+						if (preg_match('/4\.1\.1\.(\d+)/', $key, $m)) {
+							$nameSlot = strtolower(trim(str_replace(['STRING:', ' ', '"'], '', $type)));
+							if (!empty($m[1]) && isset($nameSlot)) {
+								$rSlot[$typeid++] = ['name' => $nameSlot, 'id' => $m[1]];
+							}
+						}
+					}
+				}
+				if(isset($rSlot) && is_array($rSlot)){
+					echo'<div class="olt_zte">';
+					foreach($rSlot as $idslot => $valueslot){
+						if (isset($zte_slot_types[$valueslot['name']])) {
+							echo $zte_slot_types[$valueslot['name']];
+						}
+					}
+					if(isset($resTypeSpeedFan)){
+						echo'<div class="blockstats1">';
+						foreach($resTypeSpeedFan as $keyFan => $SpeedFan){
+							echo'<span class="slotfan"><img class="rot" src="../style/img/extractor.png"><b>FAN </b> '.strtolower(str_replace('INTEGER:', '', str_replace(' ', '', str_replace('"', '', trim($SpeedFan))))).'</span>';
+						}
+						echo'</div>';						
+					}
+					echo'</div>';
+				}
+			}
+		}
+		/// BDCOM, CDATA
+		if(!empty($switch['id'])){			
+			if($switch['oidid']==34 || $switch['oidid']==35 || $switch['oidid']==32 || $switch['oidid']==28 
+			|| $switch['oidid']==24 || $switch['oidid']==20 || $switch['oidid']==6  || $switch['oidid']==18 
+			|| $switch['oidid']==17 || $switch['oidid']==11 || $switch['oidid']==10 || $switch['oidid']==3 
+			|| $switch['oidid']==12 || $switch['oidid']==5  || $switch['oidid']==2  || $switch['oidid']==8 
+			|| $switch['oidid']==30 || $switch['oidid']==31 || $switch['oidid']==23 || $switch['oidid']==13 
+			|| $switch['oidid']==15 || $switch['oidid']==1  || $switch['oidid']==9  || $switch['oidid']==16  
+			|| $switch['oidid']==14 || $switch['oidid']==7  || $switch['oidid']==33 || $switch['oidid']==36 
+			|| $switch['oidid']==37 || $switch['oidid']==38 || $switch['oidid']==29 || $switch['oidid']==39
+			|| $switch['oidid']==40 || $switch['oidid']==41 || $switch['oidid']==42 || $switch['oidid']==43
+			){
+			$res_snmp = api__($config['monitorapi'],['do' => 'device','id' => $id]);	
+				if(is_array($res_snmp)){
+					if(is_array($res_snmp['result'])){
+						foreach($res_snmp['result'] as $type => $value) {
+							if($type=='firmware'){
+								$inf .= '<div class="uptime"><img src="../style/img/temperature-control.png"><span class="data">'.valueStringSnmp_($value).'</span></div>';
+							}elseif($type=='name'){
+								$inf .= '<div class="uptime"><img src="../style/img/temperature-control.png"><span class="name">'.$lang['name'].'</span><span class="data">'.valueStringSnmp_($value).'</span></div>';
+							}elseif($type=='uptime'){								
+								if (strpos($value, 'Timeticks') !== false){
+									preg_match('/\((.*?)\)/', $value, $matches);
+									if(isset($matches[1]))
+										$valuetime = formatUptime($matches[1]);
+								} elseif(preg_match('/^\(\d+\)/', $value, $matches)) {								
+									$valuetime = formatUptime($value);
+								} elseif(preg_match('/^\(\d+\)/', $value, $matches)) {
+									$value = preg_replace('/[^\d]/', '', $matches[0]);
+									$valuetime = formatUptime($value);
+								} else {
+									$valuetime = formatUptime($value);
+								}
+								if($valuetime!=false){
+									$stmt = $pdo->prepare("UPDATE switch SET uptime = ? WHERE id = ?");
+									$stmt->execute([$valuetime, $id]);
+								}
+								$inf .= '
+								<div class="uptime">
+									<img src="../style/img/uptime.png">
+									<span class="name">'.$lang['uptime'].'</span>
+									<span class="data">'.$valuetime.'</span>
+								</div>';
+							}
+						}
+						foreach($res_snmp['result'] as $type => $value) {
+							$value = valueStringSnmp($value);
+							if($type=='cpu'){
+								if(is_numeric($value)){
+									$sys_inf .= '<div class="progress-cpu-block"><h3>'.$lang['load_cpu'].' '.intval($value).'%</h3><div class="progress-cpu"><div class="progress-bar blue" style="width:'.intval($value).'%;"></div></div></div>';
+								}
+							}elseif($type=='temp'){
+								if(is_numeric($value)){
+									if($switch['oidid']==15 || $switch['oidid']==12 || $switch['oidid']==8){
+										$value = $value/10;
+									}
+									$sys_inf .= '<div class="progress-cpu-block"><h3>'.$lang['load_temp'].' '.intval($value).'C</h3><div class="progress-cpu"><div class="progress-bar orange" style="width:'.intval($value).'%;"></div></div></div>';
+								}
+							}elseif($type=='memory'){
+								if(is_numeric($value)){
+									$sys_inf .= '<div class="progress-cpu-block"><h3>'.$lang['memload'].' '.intval($value).'%</h3><div class="progress-cpu"><div class="progress-bar blue-dark" style="width:'.intval($value).'%;"></div></div></div>';
+								}
+							}
+						}
+					}
+					if($sys_inf){
+						echo'<div id="cssfon">'.$sys_inf.'</div>';
+					}
+					echo'<div id="cssfon_olt">'.$inf.'</div>';
+				}
+			}
+		}
+		// BDCOM EPON
+		if($switch['oidid']==39){
+			$cisco_cpu = '';
+			$resCpu = @snmp2_real_walk($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.9.9.109.1.1.1.1.7');
+				if(is_array($resCpu)){
+					$i = 1;
+					foreach($resCpu as $type => $value) {
+						$value = valueStringSnmp($value);
+						$cisco_cpu .= '<div class="progress-cpu-block"><h3>CPU_'.$i.' '.$lang['load_cpu'].' '.intval($value).'%</h3><div class="progress-cpu"><div class="progress-bar blue" style="width:'.intval($value).'%;"></div></div></div>';
+					$i ++;
+					}
+					echo'<div id="cssfon">'.$cisco_cpu.'</div>';
+				}
+		}
+		if($switch['oidid']==1){
+			$dcvolt = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.3320.9.189.1.0');
+			$snmp_volt = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.3320.3.6.10.1.14.1');
+			$volt = strtolower(str_replace('INTEGER:','',str_replace(' ','',str_replace('"','',trim($snmp_volt)))));	
+			$snmp_fan_speed = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.3320.9.187.4.1.2.1');
+			$fan_speed = strtolower(str_replace('INTEGER:','',str_replace(' ','',str_replace('"','',trim($snmp_fan_speed)))));				
+			$snmp_acdcbdcom = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.3320.9.187.4.1.2.1');
+			$acdcbdcom = strtolower(str_replace('INTEGER:','',str_replace(' ','',str_replace('"','',trim($snmp_acdcbdcom)))));	
+			echo'<div class="olt_zte">';
+			if($volt){
+				echo'<span class="slotplat"><img src="../style/img/hwvolt.png"><b>'.$lang['voltage'].'</b>'.$volt.'V</span>';
+			}
+			if($fan_speed){
+				$arrayfan = [1=>'Normal',2=>'Stop',3=>'Unused'];
+				echo'<span class="slotfan"><img class="rot" src="../style/img/extractor.png"><b>'.$lang['fan'].'</b> '.$arrayfan[$fan_speed].'</span>';
+			}		
+			if($acdcbdcom){
+				echo'<span class="slotfan"><img src="../style/img/sfpvolt.png"><b>'.$lang['acdc'].'</b> '.$bdcom_epon_acdc_pw[$acdcbdcom].'</span>';
+			}
+			echo'</div>';
+		}		
+		// BDCOM GPON
+		if($switch['oidid']==2){
+			$listfan = @snmp2_walk($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.3320.9.187.4.1.3');
+			if($listfan){
+				echo'<div class="blockstats1">';
+				foreach($listfan as $keyFan => $SpeedFan){
+					echo'<span class="slotfan"><img class="rot" src="../style/img/extractor.png"><b>FAN </b> '.strtolower(str_replace('INTEGER:', '', str_replace(' ', '', str_replace('"', '', trim($SpeedFan))))).'</span>';
+				}
+				echo'</div>';						
+			}
+		}
+		// ZTE 6
+		if($switch['oidid']==6){
+			$olt_card_oid = ['oid' => '1.3.6.1.4.1.3902.1082.10.1.2.4.1.4.1.1','cache' => true,'timecache' => 1800,'namecache' => 'list_card _'.$switch['id'],'type' => 'class','deloid' => true,'ip' => $switch['netip'],'community'=> $switch['snmpro']];
+			$list_card = pmon_walk($olt_card_oid);
+			$fan_speed_oid = ['oid' => '1.3.6.1.4.1.3902.3.6002.2.3.1.14.1.1.6','cache' => true,'timecache' => 600,'namecache' => 'fan_speed _'.$switch['id'],'type' => 'class','deloid' => true,'ip' => $switch['netip'],'community'=> $switch['snmpro']];
+			$fan_speed = pmon_walk($fan_speed_oid);
+			if(isset($fan_speed)){
+				echo'<div class="blockstats1">';
+				foreach($fan_speed as $key => $proc['result']){
+					$pr = str_replace('INTEGER:', '', str_replace(' ', '', str_replace('"', '',$proc['result'])));
+					echo'<span class="slotfan"><img class="rot" src="../style/img/extractor.png"><b>FAN_'.($key+1).'</b> '.$pr['result'].'%</span>';
+				}
+				echo'</div>';
+			}
+			echo'<div class="olt_zte">';
+			if(isset($list_card)){
+				foreach($list_card as $idslot => $valueslot){
+					$nSlot = $valueslot['result'];
+					$nameSlot = strtolower(str_replace('STRING:', '', str_replace(' ', '', str_replace('"', '', trim($nSlot)))));
+					if (isset($zte_slot_types[$nameSlot])) {
+						echo $zte_slot_types[$nameSlot];
+					}
+				}
+			}
+			$battery_v = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.3902.3.6002.2.6.3.1.5.0.1.0.4.0'); // mA
+			if($battery_v!=false){
+				$bat_v = str_replace('STRING:', '', str_replace(' ', '', str_replace('"', '', trim($battery_v))));
+				echo'<span class="slotplat_huawei"><img src="../style/img/hwvolt.png"><span><b>Voltage</b>'.$bat_v.'V</span></span>';
+			}
+			echo'</div>';
+		}			
+		// CISCO 
+		if($switch['oidid']==20){
+			if(isset($listfan) && $listfan!=false){
+				echo'<div class="blockstats1">';
+				foreach($listfan as $keyFan => $SpeedFan){
+					echo'<span class="slotfan"><img class="rot" src="../style/img/extractor.png"><b>FAN </b> '.strtolower(str_replace('INTEGER:', '', str_replace(' ', '', str_replace('"', '', trim($SpeedFan))))).'</span>';
+				}
+				echo'</div>';						
+			}
+		}
+		// C-DATA 16xx GPON
+		if($switch['oidid']==12){
+			@$respower = snmp2_real_walk($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.17409.2.3.1.4.1.1.6.1');
+			if($respower){
+				foreach($respower as $key => $type){
+					preg_match('/3.1.4.1.1.6.1.(\d+)/',$key,$m);
+					$nameSlot = strtolower(str_replace('STRING:','',str_replace(' ','',str_replace('"','',trim($type)))));
+					$statuspower = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.17409.2.3.1.4.1.1.3.1.'.$m[1]);
+					$powercard[$m[1]]['name']= $nameSlot;	
+					$powercard[$m[1]]['status']= strtolower(str_replace('INTEGER:','',str_replace(' ','',str_replace('"','',trim($statuspower)))));	
+					$powercard[$m[1]]['id']= $m[1];	
+				}
+			}
+			if(is_array($powercard)){
+				echo'<div class="olt_zte">';
+				foreach($powercard as $type => $value) {
+					echo'<span class="slotplat"><img src="../style/img/energy'.$value['status'].'.png" style="top: 2px;"><b>'.$value['name'].'</b></span>';
+				}
+				echo'</div>';
+			}
+		}
+	if($switch['oidid']==33 || $switch['oidid']==14){
+		/* Huawei, коли відсутнє світло:
+		 * 1.3.6.1.4.1.2011.6.2.1.3.1.1.1.0   - напруга АКБ
+		 * 1.3.6.1.4.1.2011.6.2.1.3.1.10.1.0  - споживання (mA)
+		 * 1.3.6.1.4.1.2011.6.2.1.2.1.3.1.0.0 - 0 = світла немає
+		 * 1.3.6.1.4.1.2011.6.2.1.3.1.11.1.0  - ємність АКБ (mAh)
+		 */
+		$battery_ma = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.2011.6.2.1.3.1.11.1.0',$timeout * 1000,$retries);
+		if($battery_ma){
+			$bat_ma = strtolower(str_replace(['INTEGER:', '"', ' '], '', trim($battery_ma)));
+			$bat_ma = is_numeric($bat_ma) ? intval($bat_ma) : 0;
+		} else {
+			$bat_ma = 0;
+		}
+		$battery_run = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.2011.6.2.1.3.1.10.1.0',$timeout * 1000,$retries);
+		$battery_run = strtolower(str_replace(['INTEGER:', '"', ' '], '', trim($battery_run)));
+		$battery_run = is_numeric($battery_run) ? intval($battery_run) : 0;
+		$power_state = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.2011.6.2.1.2.1.3.1.0.0',$timeout * 1000,$retries);
+		$power_state = intval(str_replace(['INTEGER:',' '],'',$power_state));
+		$volt = 0;
+		$temp1 = @snmp2_get($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.2011.6.2.1.3.1.1.1.0',$timeout * 1000,$retries);
+		if($temp1){
+			$volt = intval(str_replace(['INTEGER:',' '],'',$temp1)) / 1000;
+		}
+		$runtime_h = 0;
+		$runtime_m = 0;
+		if ($power_state === 0 && $bat_ma > 0 && $battery_run > 0) {
+			$efficiency = 0.8; // втрати АКБ ~20%
+			$runtime_h = ($bat_ma * $efficiency) / $battery_run;
+			$runtime_m = $runtime_h * 60;
+		}
+		$resTypeSlot = @snmp2_real_walk($switch['netip'],$switch['snmpro'],'1.3.6.1.4.1.2011.2.6.7.1.1.2.1.7.0');
+		$typeid = 1;
+		$rSlot = [];
+		if($resTypeSlot){
+			foreach($resTypeSlot as $key => $type){
+				preg_match('/1.2.1.7.0.(\d+)/',$key,$m);
+				$nameSlot = strtolower(str_replace(['STRING:', '"', ' '],'',trim($type)));
+				$rSlot[$typeid]['name'] = $nameSlot;
+				$rSlot[$typeid]['id']   = $m[1];
+				$typeid++;
+			}
+		}
+		if(is_array($rSlot)){
+			echo '<div class="olt_zte">';
+			foreach ($rSlot as $idslot => $valueslot) {
+				if (isset($huawei_slot_types[$valueslot['name']])) {
+					echo $huawei_slot_types[$valueslot['name']];
+				}
+			}
+			if($volt){
+				echo '<span class="slotplat_huawei"><img src="../style/img/energy2.png"><span><b>Energy</b> '.$volt.' V</span></span>';
+			}
+			if($runtime_h > 0){
+				echo '<span class="slotplat_huawei"><img src="../style/img/module_ping3.png"><span><b>Battery</b> '.round($runtime_h,2).' h</span></span>';
+				echo '<span class="slotplat_huawei"><img src="../style/img/module_ping3.png"><span><b>Battery</b> '.round($runtime_m).' min</span></span>';
+			}
+			echo '</div>';
+		}
+	}
+	$hasAccess = ($switch['monitor'] === 'yes' && $access->get('runmonitor'));
+	$cooldownSeconds = 5 * 60;
+	$cdSwitch = new Cooldown($switch['updates'],$cooldownSeconds,$hasAccess);
+	$cdRx = new Cooldown($switch['updates_rx'],$cooldownSeconds,$hasAccess);
+	if ($cdSwitch->canRun()) {
+		$switchJs  = 'onclick="sender_worker_poller(57,'.(int)$switch['id'].',\'Перевірка комутатора запущена\',\'success\')"';
+		$switchCss = '';
+		$switchIcon = 'refresh';
+	} else {
+		$switchJs  = 'onclick="showToast(\'Потрібно зачекати: '.$cdSwitch->waitText().'\',\'warning\')"';
+		$switchCss = 'wait';
+		$switchIcon = 'clock';
+	}
+	if ($cdRx->canRun()) {
+		$icon_rx_btn_css = '';
+		$rxIcon = 'refresh';
+		$signal_rxonu_btn_js = 'onclick="sender_worker_poller(56,'.(int)$switch['id'].',\'RX ONU запущено\',\'success\')"';
+		$signal_rxolt_btn_js = 'onclick="sender_worker_poller(31,'.(int)$switch['id'].',\'RX OLT запущено\',\'success\')"';
+	} else {
+		$icon_rx_btn_css = 'wait';
+		$rxIcon = 'clock';
+		$waitText = $cdRx->waitText();
+		$signal_rxonu_btn_js =
+		$signal_rxolt_btn_js =
+		'onclick="showToast(\'Потрібно зачекати: '.$waitText.'\',\'warning\')"';
+	}
+	echo '<div id="panel_switch_checker">';
+	echo '
+	<span class="update_device tyc_olt '.$switchCss.'" '.$switchJs.'>
+		<div><i class="fi fi-rr-'.$switchIcon.'"></i></div>
+		Оновити
+	</span>';
+
+	if ($switch['device'] === 'olt') {
+
+		echo '
+		<span class="update_device tyc_signal '.$icon_rx_btn_css.'" '.$signal_rxonu_btn_js.'>
+			<div><i class="fi fi-rr-'.$rxIcon.'"></i></div>
+			Rx ONU
+		</span>';
+
+		echo '
+		<span class="update_device tyc_rxsignal '.$icon_rx_btn_css.'" '.$signal_rxolt_btn_js.'>
+			<div><i class="fi fi-rr-'.$rxIcon.'"></i></div>
+			Rx OLT
+		</span>';
+	}
+
+	echo '</div>';
+	}
+}
+?>
+

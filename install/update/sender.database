@@ -1,0 +1,6 @@
+CREATE TABLE `sender` (
+  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `jobid` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

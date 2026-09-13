@@ -1,0 +1,251 @@
+<?php
+define('AJAX',true);
+define('CALENDAR',true);
+define('ROOT_DIR',substr( dirname( __FILE__),0,-5));
+define('ENGINE_DIR',ROOT_DIR.'/inc/');	
+require_once ENGINE_DIR.'ajax.php';
+$act = isset($_POST['act']) ? Clean::text($_POST['act']): null;
+$js_time_healt = '';
+$js_cpu_healt = '';
+$js_temp_healt = '';
+$result = '';
+$style = '';
+switch($act){
+	case 'digitaltwin':
+		require_once ENGINE_DIR . 'functions/digital_twin.php';
+		if (($access->get('porterror') || $access->get('pon_calc') || $access->get('monitordevice') || dt_user_is_admin($USER))) {
+			echo dt_render_main_widget($pdo, $USER, 5);
+		}
+		die;
+	break;
+	case 'onus':
+		if ($access->get('setup') ){
+			$sql_data = ['sql' => 'SELECT count(idonu) as count_this FROM `onus`','key' => 'count_this','time' => 600];
+			$countall = cache_simple_sql($sql_data);
+			if($countall['count_this']>0){	
+				$countallonu = $db->Simple('SELECT count(idonu) as count_all FROM `onus` WHERE status = 1');
+				$result .='<div id="statistic"><div class="statistic">';
+				$sqlnewonutoday = $db->Simple('SELECT count(idonu) as count_onus FROM `onus` WHERE added  >= curdate()');
+				if($sqlnewonutoday['count_onus']>0){
+					$result .= statsurl("/?do=search&search=&selectcurday=today&selectpon=all&act=search",$sqlnewonutoday['count_onus'],$lang['newonu'],$lang['list'],'green');
+				}
+					$result .= statsurl("/?do=search&search=&selectpon=all&act=search",$countall['count_this'],
+					$lang['allonus'],$lang['scanonu'],'blue');			
+				if(!empty($countallonu['count_all'])){
+					$result .= statsurl("/?do=search&search=&selectpon=all&act=search&onlyactive=on",$countallonu['count_all'],
+					$lang['allonile'],$lang['listactivity'],'green');
+				}	
+				$countofflineonu = intval($countall['count_this']-$countallonu['count_all']);
+				if($countall['count_this']>0 && $countofflineonu){	
+					$result .= statsurl("/?do=search&search=&selectpon=all&act=search&onlyactive=off",$countofflineonu,$lang['alloffile'],$lang['listnotactivity'],'orange');
+				}
+				$countbadrxonu = get_bad_rx_onu_all();
+				if($countbadrxonu['bad_rx']>0){
+					$result .= statsurl("/?do=search&selectpon=all&badrx=bad&act=search&onlyactive=on&search=",$countbadrxonu['bad_rx'],$lang['allbadrx'],$lang['listbadrxonu'],'tomato');
+				}
+				$counterr1 = $db->Simple("SELECT count(idonu) as offline_onu FROM onus WHERE status = 2 AND reason = 'err1'");
+				if($counterr1['offline_onu']>0){
+					$result .= statsurl("/?do=device",$counterr1['offline_onu'],'ONU Power-OFF',$lang['listpoweroffonu'],'grey');
+				}
+				if (isset($confPMon['ENABLE_SPEEDPMON']) && !empty($confPMon['ENABLE_SPEEDPMON']) && $confPMon['ENABLE_SPEEDPMON'] == 1) {
+					$timerpoller = (isset($confPMon['TIMER_SPEEDPMON'])?$confPMon['TIMER_SPEEDPMON']:15);
+					$counterr2 = $db->Simple("SELECT count(idonu) as checker_onu FROM onus WHERE updates >= (NOW() - INTERVAL ".$timerpoller." MINUTE) ");
+					if($counterr2['checker_onu']>0){
+						$result .= statsurl("/?do=device",$counterr2['checker_onu'],$lang['pmonchecker'].' ONU','Realtime monitor ONU','green');				
+					}
+				}
+				$result .='</div></div>';
+				$style = $result;
+			}
+		}
+	break;		
+	case 'snmp':	
+		$style = '';
+		if (isset($confPMon['CHECK_SNMP']) && !empty($confPMon['CHECK_SNMP']) && $confPMon['CHECK_SNMP'] == 1) {
+			$sqlpinger = $db->SimpleWhile('SELECT * FROM switch WHERE pinger = 2');
+			if(is_array($sqlpinger) && count($sqlpinger)>0){
+				$style .='<div class="main_blocks"><div class="css-warning"><div class="icon"><i class="fi fi-rr-globe"></i></div><div class="txt">'.$lang['not_snmp'].'</div></div><div id="ping3"><div class="blockipmanlist">';
+				foreach($sqlpinger as $dev){
+					if(!empty($dev['netip'])){
+						$style .='<div class="ips useduser" style="background:#ff00000f;border: 1px solid red;"><span>'.$dev['netip'].'</span><div class="ipname">'.$dev['place'].'</div>	'.(isset($arrayloc[$dev['location']]) && !empty($arrayloc[$dev['location']]['name'])?'<div class="ipgoup">'.$arrayloc[$dev['location']]['name'].'</div>':'').'</div>';
+					}
+				}
+				$style .='</div></div></div>';
+			}
+		}
+		echo $style;
+		die;		
+	break;		
+	case 'calendar':
+		if (isset($confPMon['CALENDAR_MAIN']) && !empty($confPMon['CALENDAR_MAIN']) && $confPMon['CALENDAR_MAIN'] == 1 && $access->get('calendar')) {
+			$calendar = "";
+			$date = sprintf('%04d-%02d-%02d',date('Y'), date('m'), date('d'));
+			$sql_events = $db->SimpleWhile("
+				SELECT e.name, c.name AS category, c.color AS color, ev.id as ev_id, ev.description, ev.start_date as start
+				FROM calendar_events ev 
+				JOIN calendar_employees e ON ev.employee_id = e.id 
+				JOIN calendar_categories c ON ev.category_id = c.id 
+				WHERE '$date' BETWEEN ev.start_date AND COALESCE(ev.end_date, ev.start_date)");
+			if(isset($sql_events) && count($sql_events)>0){
+				$calendar .= "<div class='ajaxserver'>"; 
+				$calendar .= "<div class='list-day'>";        
+				foreach ($sql_events as $event) {
+					$color = day_color($event['color']);
+					$day = date('d', strtotime($event['start']));
+					$dateinf = "<div $color class='date_calendar'>{$day}</div>";
+					$calendar .= "<div onclick=\"scheduler('view',".$event['ev_id'].")\" class='get-day'>{$dateinf}<b>{$event['category']}</b>{$event['name']}</div>";
+				}
+				$calendar .= "</div>";		
+				$calendar .= "</div><br>";		
+			}
+			echo $calendar;
+		}
+	break;		
+	case 'online':		
+		$sql_session = $db->SimpleWhile("SELECT * from users where lastactivity >= (NOW() - INTERVAL 5 MINUTE)");
+		if(isset($sql_session) && count($sql_session)>0){
+			echo'<div class="us_online"><div class="block_online">';
+			foreach($sql_session as $user){
+				echo'<div class="us"><div class="cla"><img src="../style/img/ava'.(isset($user['status']) && $user['status']>1 ? '_'.$user['status'] :'').'.png"></div><div class="op"><span class="nam">'.$user['username'].'</span></div></div>';
+			}
+			echo'</div></div>';
+		}	
+		die;
+	break;		
+	case 'porterror':	
+		$style = '';
+		if (isset($confPMon['PING3']) && !empty($confPMon['PING3']) && $confPMon['PING3'] == 1) {
+			$sqllistping3 = $db->SimpleWhile('SELECT * FROM mon_ping3 WHERE monitor = "yes" AND energy = 2');
+			if ($sqllistping3) {
+				$hasAccess = false;
+				foreach ($sqllistping3 as $ping3) {
+					if ($access->get('ping3_' . $ping3['id'])) {
+						$hasAccess = true;
+						break;
+					}
+				}
+				if (!$hasAccess) {
+					return;
+				}
+				$style .= '<div class="main_blocks">
+								<div class="css-warning">
+									<div class="icon"><i class="fi fi-rr-bell"></i></div>
+									<div class="txt">'.$lang['notvolt'].'</div>
+								</div>
+								<div id="ping3">';
+
+				foreach ($sqllistping3 as $ping3) {
+					if ($access->get('ping3_' . $ping3['id'])) {
+						$style .= '<a href="/?do=ping3&act=view&id='.$ping3['id'].'" class="battery">
+										<div class="battery-img">'
+											. monitorPing3img($ping3) .
+											'<div class="battery-volt">'.(!empty($ping3['volt']) ? $ping3['volt'] : 0).'v</div>
+										</div>
+										<div class="battery-name">'.$ping3['name'].'</div>
+								   </a>';
+					}
+				}
+				$style .= '</div></div>';
+			}
+		}
+		if (isset($confPMon['ERRORSFP']) && !empty($confPMon['ERRORSFP']) && $confPMon['ERRORSFP'] == 1) {
+			$dataportmonitor = [];
+			$masiv_switch = [];
+			$olt_array = [];
+				$and_access = "AND (a.uid IS NOT NULL OR switch_port.id IS NULL)";
+				$access_sql = "LEFT JOIN checkaccess a ON CONCAT('dev', switch_port.deviceid) = a.types AND a.uid = '{$USER['id']}'";
+				$list_port = $db->SimpleWhile("
+					SELECT switch_port.id, switch_port.deviceid, switch_port.llid, switch_port.error_count, 
+						   switch_port.error_today, switch_port.operstatus, switch_port.nameport, switch_port.descrport 
+					FROM switch_port 
+					{$access_sql}
+					WHERE 
+					monitor = 'yes' 
+					AND error_today > 0 {$and_access}
+				");
+			foreach ($list_port as $port) {
+				$dataportmonitor[$port['deviceid']]['port'][$port['id']] = $port;
+				$olt_array[] = $port['deviceid'];
+			}
+			if (!empty($olt_array)) {
+				$olt_values = implode(',', $olt_array);
+				$sql_switch = "SELECT place, model, inf, id 
+					FROM 
+					switch WHERE `id` IN ($olt_values)";
+				$list_switch = $db->SimpleWhile($sql_switch);
+			}
+			if (!empty($list_switch)) {
+				$style .= '<br><table class="resp-tab"><thead><tr><th>' . $lang['inface'] . '/Port</th><th width="20%">' . $lang['alls'] . '</th><th width="20%">' . $lang['day_curent'] . '</th></tr></thead><tbody>';
+				foreach ($list_switch as $device) {
+					$style .= '<tr><td colspan="4" class="td_url">
+								<a href="/?do=porterror&id=' . $device['id'] . '">' . $device['place'] . '</a>
+								</td></tr>';
+					if (isset($dataportmonitor[$device['id']]['port'])) {
+						foreach ($dataportmonitor[$device['id']]['port'] as $dataport => $value) {
+							$style .= '<tr>
+								<td>' . (isset($value['descrport']) ? '<span class="style_font_1">' . $value['descrport'] . '</span> ' : '') . ' <font color="#222">' . $value['nameport'] . '</font></td>
+								<td><font color="#d62c0e">' . $value['error_count'] . '</font></td>
+								<td><b><font color="red">+' . $value['error_today'] . '</font></b></td>
+							</tr>';
+						}
+					}
+				}
+				$style .= '</tbody></table>';
+			}
+		}
+		echo $style;
+		exit;
+	break;		
+	case 'stats':	
+		if (isset($confPMon['STATISTIC_ONU']) && !empty($confPMon['STATISTIC_ONU']) && $confPMon['STATISTIC_ONU'] == 1) {
+		$id = isset($_POST['id']) ? Clean::text($_POST['id']): null;
+		if($id=='yesterday'){
+			$sqlgraph = $db->SimpleWhile("SELECT * FROM pmonstats WHERE datetime > DATE_ADD(NOW(), INTERVAL -1 DAY)");
+		}elseif($id=='week'){
+			$sqlgraph = $db->SimpleWhile("SELECT * FROM pmonstats WHERE datetime > DATE_ADD(NOW(), INTERVAL -7 DAY)");	
+		}elseif($id=='clear'){	
+			$db->query('TRUNCATE `pmonstats`');
+			header('Location: /');
+		}elseif($id=='month'){	
+			$sqlgraph = $db->SimpleWhile("SELECT * FROM pmonstats WHERE datetime > DATE_ADD(NOW(), INTERVAL -30 DAY)");
+		}else{
+			$sqlgraph = $db->SimpleWhile("SELECT * FROM pmonstats WHERE datetime >= curdate()");
+			$id = 'curday';				
+			$sql_data = ['sql' => 'SELECT * FROM pmonstats WHERE datetime >= curdate()','key' => 'main_char','type' => 'while','time' => 600];
+			$sql_notification = cache_simple_sql($sql_data);
+		}
+		if(isset($sqlgraph) & $sqlgraph!=false){
+			$js_array_time = $js_array_time ?? null;
+			$js_array_online = $js_array_online ?? null;
+			$js_array_offline = $js_array_offline ?? null;
+			$arr_badrx = $arr_badrx ?? null;
+			foreach($sqlgraph as $phar){
+				$clocks = new DateTime($phar['datetime']);
+				$js_array_time .= '"'.date_format($clocks,'H:i').'",';
+				$js_array_online .= '"'.(!empty($phar['online'])?$phar['online']:0).'",';
+				$js_array_offline .= '"'.(!empty($phar['offline'])?$phar['offline']:0).'",';
+				$arr_badrx .= '"'.(!empty($phar['badsignal'])?$phar['badsignal']:0).'",';
+			}
+			$result .='<div  class="main_blocks"><div class="main-gr-tab">';
+			$result .='<a href="/?do=main" class="'.($id=='curday'?'tab-active':'tab-url').'"><i class="fi fi-rr-time-twenty-four"></i>'.$lang['day_curent'].'</a>';
+			$result .='<a href="/?do=main&stats=yesterday" class="'.($id=='yesterday'?'tab-active':'tab-url').'"><i class="fi fi-rr-clock"></i>'.$lang['day_later'].'</a>';
+			$result .='<a href="/?do=main&stats=week" class="'.($id=='week'?'tab-active':'tab-url').'"><i class="fi fi-rr-clock"></i>'.$lang['day_week'].'</a>';
+			$result .='<a href="/?do=main&stats=month" class="'.($id=='month'?'tab-active':'tab-url').'"><i class="fi fi-rr-clock"></i>'.$lang['day_m'].'</a>';
+			if(checkAccess(4)){
+				$result .='<a href="/?do=main&stats=clear" class="tab-url" style="color:red;"><i class="fi fi-rr-delete"></i>'.$lang['clears'].'</a>';
+			}
+			$result .='</div>';
+			$result .='<div class="block_main_stats"><canvas id="pmon_stats"  style="height: 150px; width: 500px;"></canvas></div><script>';
+			$result .='var ctx = document.getElementById("pmon_stats").getContext("2d");';
+			$result .='var pmon_stats = new Chart(ctx,{type:"bar",data:{labels:['. trim($js_array_time, ',').'],datasets:[{data: ['.trim($js_array_online, ',').'],label:"'.$lang['online'].'",borderColor: "#3cba9f",backgroundColor:"#1ced1c"},{data: ['.trim($js_array_offline, ',').'],label: "'.$lang['offline'].'",borderColor: "#c45850",backgroundColor:"rgb(115 139 179 / 77%)"},{data: ['.trim($arr_badrx,',').'],label: "'.$lang['bad_signal'].'",borderColor: "#c45850",backgroundColor:"tomato"}]},});';
+			$result .='</script></div>';
+		}
+		$style = $result;
+		}else{
+			$style = '';
+		}
+	break;		
+}
+echo $style;
+die;
+?>

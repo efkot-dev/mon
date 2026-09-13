@@ -1,0 +1,3140 @@
+var loadingImage = 'ajax-loader-big.gif';
+var pmon_load = '<div id="pmon_load"><div class="loader"></div></div>';
+var LoadingBar = '<div style="padding:20px;text-align:center;"><img src="../style/img/'+loadingImage+'" /></div>';
+var LoadingBarmin = '<div style="padding:2px;text-align:center;"><img style="height:9px;" src="../style/img/'+loadingImage+'" /></div>';
+var LoadingBarminm = '<div style="display: initial;padding:2px;text-align:center;"><img style="height:9px;" src="../style/img/'+loadingImage+'" /></div>';
+function del_board_switch(id) {
+	$("#switch_" + id).html(LoadingBarmin);
+	$.post(root + "?do=board&act=delswitch",{id:id}, function(response) {
+		$("#switch_" + id).hide();
+	}, "html");	
+}
+function exportToExcel() {
+    const clone = document.querySelector('.css_house').cloneNode(true);
+    clone.querySelectorAll('textarea').forEach(textarea => {
+        const div = document.createElement('div');
+        div.textContent = textarea.value;
+        div.style.whiteSpace = 'pre-wrap';
+        textarea.replaceWith(div);
+    });
+    const tableHTML = clone.outerHTML;
+    const blob = new Blob(['\ufeff' + tableHTML], {
+        type: 'application/vnd.ms-excel'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'export.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+function del_board_city(id) {
+	$("#in_" + id).html(LoadingBarmin);
+	$.post(root + "?do=board&act=delcity",{id:id}, function(response) {
+		$("#in_" + id).hide();
+		location.reload();	
+	}, "html");
+}
+function log_onu(idonu) {
+	$("#logont").html(LoadingBarmin);
+	$.post(root + "ajax/logont.php",{idonu:idonu}, function(response) {
+		$("#logont").html(response);
+	}, "html");
+}
+function added_board(id,types) {
+	$.post(root + "?do=board&act=added",{id:id,types:types}, function(response) {
+		$("#ajax").html(response);
+	}, "html");
+}
+function manual_menu(action, state) {
+    $.post(root + "?do=send&act=menu", { action: action, show: state }, function(response) {
+        var currentStatus = response.status;        
+        if (currentStatus === 'true') {
+            $('#view_' + action).html('<img src="../style/img/accept.png">');
+            $('#view_' + action).attr('onclick', 'manual_menu(\'' + action + '\', \'hide\')');
+        } else {
+            $('#view_' + action).html('<img src="../style/img/hidden.png">');
+            $('#view_' + action).attr('onclick', 'manual_menu(\'' + action + '\', \'view\')');
+        }
+    }, "json");
+}
+function enableCopyOnClick(textToCopy) {
+    const textArea = document.createElement('textarea');
+    textArea.value = textToCopy;
+    document.body.appendChild(textArea);
+    textArea.select();
+    textArea.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+}
+$(document).on("click", ".add_move_tovar", function () {
+	var id = $(this).data("id");
+    var category_id = $("#category_id").val();
+    var sub_id = $("#sub_id").val();
+	$("#tovar_result_" + id).hide();
+	$.post("/?do=tmc&act=menu", {id:id, go:'updatemove', category_id:category_id,sub_id:sub_id});
+	location.reload();
+});
+$(document).on("click", ".edit_tovar_opis", function () {
+	var id = $(this).data("id");
+	$.post("/?do=tmc&act=menu", { id: id, go:'name'}, function (response) {
+		$("#tovar_result_" + id).html(response);
+	});
+});
+$(document).on("click", ".price_tovar_list", function () {
+	var id = $(this).data("id");
+	$.post("/?do=tmc&act=menu", { id: id, go:'price'}, function (response) {
+		$("#tovar_result_" + id).html(response);
+	});
+});
+$(document).on("click", ".hide_tovar_list", function () {
+	var id = $(this).data("id");
+	$.post("/?do=tmc&act=menu", { id: id, go:'hide'});
+	location.reload();
+});
+$(document).on("click", ".add_price_tovar", function () {
+	var id = $(this).data("id");
+	var price = $("#price").val();
+	var price_pdv = $("#price_pdv").val();
+	$.post("/?do=tmc&act=menu", { id: id, go:'updateprice', price_pdv:price_pdv,price:price});
+	location.reload();
+});
+$(document).on("click", ".edit_tovar_move", function () {
+	var id = $(this).data("id");
+	$.post("/?do=tmc&act=menu", { id: id, go:'move'}, function (response) {
+		$("#tovar_result_" + id).html(response);
+	});
+});
+$(document).on("click", ".add_opis_tovar", function () {
+    var id = $(this).data("id");
+    var name = $("#name").val();  
+    var description = $("#description").val();
+	$("#tovar_result_" + id).hide();
+	$.post("/?do=tmc&act=menu", {id:id,go:'update',name:name,description:description});
+	location.reload();
+});
+$(document).on("click", ".edit_tovar", function () {
+    var id = $(this).data("id");
+    $("tr[id^='tr_tovar_']").hide();
+    if ($("#tr_tovar_" + id).is(":visible")) {
+        $("#tr_tovar_" + id).hide();
+    } else {
+        $("#tr_tovar_" + id).show();
+		$.post("/?do=tmc&act=menu", { id: id }, function (response) {
+			$("#tovar_" + id).html(response);
+		});
+    }
+});
+/*SKALD*/
+function showNotification(message, url = null) {
+    let notification = $('<div></div>')
+        .text(message)
+        .css({
+            "position": "fixed",
+            "top": "50%",
+            "left": "50%",
+            "transform": "translate(-50%, -50%)",
+            "background": "rgba(0, 0, 0, 0.8)",
+            "color": "#fff",
+            "padding": "15px 30px",
+            "border-radius": "8px",
+            "z-index": "1000",
+            "font-size": "16px",
+            "text-align": "center",
+            "box-shadow": "0px 4px 10px rgba(0, 0, 0, 0.3)"
+        });
+    $("body").append(notification);
+    setTimeout(function () {
+        notification.fadeOut(300, function () {
+            $(this).remove();
+            if (url) {
+                window.location.href = url;
+            }
+        });
+    }, 3000);
+}
+/*SKALD*/
+/*TASKERS*/
+function createChart(containerId, chartData, maxValue, colors, title) {
+    d3.select("#" + containerId).selectAll("*").remove();
+    const container = d3.select("#" + containerId);
+    const containerWidth = container.node().getBoundingClientRect().width;
+    const margin = { top: 30, right: 10, bottom: 40, left: 30 },
+          width = containerWidth - margin.left - margin.right,
+          height = 200 - margin.top - margin.bottom;    
+    const svg = container
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+    svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", -10)
+        .attr("text-anchor", "middle")
+        .attr("font-size", "14px")
+        .text(title);
+    const x = d3.scaleBand()
+        .domain(chartData.map(d => d.hour))
+        .range([0, width])
+        .padding(0.1);    
+    const y = d3.scaleLinear()
+        .domain([0, maxValue])
+        .nice()
+        .range([height, 0]);    
+    const getColor = (d, i) => Array.isArray(colors) ? colors[i % colors.length] : colors;    
+    svg.append("g")
+        .selectAll("rect")
+        .data(chartData)
+        .join("rect")
+        .attr("x", d => x(d.hour))
+        .attr("y", d => y(d.count))
+        .attr("width", x.bandwidth())
+        .attr("height", d => height - y(d.count))
+        .attr("fill", (d, i) => getColor(d, i))
+        .attr("class", "bar")
+        .style("cursor", "pointer")
+        .on("click", (event, d) => handleBarClick(containerId, d.hour));
+    svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x).tickFormat(d => d));
+    svg.append("g")
+        .call(d3.axisLeft(y).ticks(5));
+    svg.selectAll(".bar-label")
+        .data(chartData)
+        .join("text")
+        .attr("class", "bar-label")
+        .attr("x", d => x(d.hour) + x.bandwidth() / 2)
+        .attr("y", d => y(d.count) - 5)
+        .attr("text-anchor", "middle")
+        .attr("fill", "black")
+        .style("font-size", "10px")
+        .text(d => d.count);
+}
+function handleBarClick(containerId, hour) {
+    const date = new Date().toISOString().split("T")[0];
+    const url = `/?do=core&act=onulist&this=${containerId}&date=${date}&hour=${hour}`;
+    const allGraphs = document.querySelectorAll(".graph-container");
+    const clickedGraph = document.getElementById(containerId);
+    if (clickedGraph.classList.contains("full-width")) {
+
+    } else {
+
+    }
+    fetch(url, { method: "POST" })
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById("ajax_result_signal").innerHTML = data;
+        });
+}
+function get_interval(id) {
+	$("#result_ajax").html(LoadingBarminm);
+	$.post(root+"?do=core",{act:'getinterval',id:id},function(response){ 
+	$("#result_ajax").html(response);
+	}, "html");
+}
+function sendSec(seconds) {
+    const targetInput = document.querySelector('input[name="interval"]');
+    if (targetInput && !isNaN(seconds)) {
+        targetInput.value = seconds;
+    }
+}
+function send_wizard(id) {
+    $.post(root + "?do=core&act=savestartpmon&deviceid=" + id,{act: "savestartpmon",deviceid: id},function(response) {
+    location.reload();
+    });
+}
+function taskers_delete(id,title) {
+	if (confirm(title)) {
+		$.post(root + "?do=core",{act: "delete",deviceid: id},function(response) {
+			location.reload();
+		});
+	}
+}
+function taskers_wizard(id) {
+	$(".ajax-result").html(LoadingBarminm);
+    $.post(root + "?do=core&act=startpmon&deviceid=" + id, function(response) {
+        $(".ajax-result").html(response);
+        window.scrollTo({top:0,behavior:"smooth"});
+    }, "html");		
+}
+function taskmasters() {
+    $.post(root + "?do=core&act=masters", function(response) {
+        $("#ajax").html(response);
+    }, "html");	
+}
+function startmasters() {
+    $.post(root + "?do=core&act=startpmon","html");
+	setTimeout(sayHi,1000);
+}
+function taskers(id) {
+    var url = root + "?do=core&act=addtaskers";
+    if (id) {
+        url += "&deviceid=" + id;
+    }
+    $.post(url, function(response) {
+        $("#ajax").html(response);
+    }, "html");
+}
+function filterDevices() {
+    const searchTerm = document.getElementById('device-search').value.toLowerCase();
+    const deviceItems = document.querySelectorAll('.device-item');
+    deviceItems.forEach(item => {
+    const deviceName = item.querySelector('label').textContent.toLowerCase();
+		item.style.display = deviceName.includes(searchTerm) ? '' : 'none';
+    });
+}
+function toggleDeviceVisibility(checkbox) {
+    const deviceId = checkbox.getAttribute('data-device-id');
+    const deviceBlock = document.getElementById('device-' + deviceId);
+    deviceBlock.style.display = checkbox.checked ? '' : 'none';
+}
+/*TASKERS*/
+function rename_port_bdcom(id, act) {
+    var llid = $("#port_llid").val();  
+    var name = $("#port_name").val();
+    var save = $("#port_save").val();
+    $.post(root + "ajax/function.php", {act: act, id: id, name: name, llid: llid, save: save}, function(response) {
+        $("#ajax").html(response);
+    }, "html");
+	setTimeout(sayHi,1000);
+}
+function change_vlan(idonu,olt,name) {
+    $.post(root + "?do=telnet&act=change_vlan",{idonu: idonu, olt: olt, name: name}, function(response) {
+        $("#ont").html(response);
+    }, "html");	
+}
+function gettransportonu(idonu) {
+	$.post(root + "?do=core&act=transport",{idonu: idonu}, function(response) {
+    $("#transport_onu").html(response);
+    }, "html");	
+}
+function basic_info(idonu,olt) {
+    $("#loading").show();
+	$.post(root + "?do=telnet&act=bdcom_gpon_basic_info",{idonu: idonu, olt: olt}, function(response) {
+        $("#ont").html(response);
+		$("#loading").hide();
+    }, "html");	
+}
+function monitorport(id,llid,core) {
+	$("#loading").show();
+    $.post(root + "ajax/port.php", {act: 'monitorport', id: id, llid: llid, core: core}, function(response) {
+        $("#ajax").html(response);
+    }, "html");
+	$("#loading").hide();
+	setTimeout(sayHi,1000);
+}
+function viewsignalsfp(id) {
+	$("#loading").show();
+    $.post(root + "ajax/historysignalsfp.php", {id: id}, function(response) {
+        $("#signalsfp").html(response);
+    }, "html");
+	$("#loading").hide();
+}
+function updateport(id, event) {
+    event.preventDefault();
+	$("#port-device-" + id ).html(LoadingBarmin);
+    $.post(root + 'poller.php', {jobid:104,olt:id,result:1}, function(response) {
+        if (response === 'ok') {
+            $.post(root+"?do=core&act=portmonitor",{id:id},function(response){ 
+				$("#port-device-" + id ).html(response);
+			}, "html");
+        }
+    });   
+}
+function deleteTask(deviceid,workid, event) {
+    event.preventDefault();
+	$(".jobid-" + deviceid +"-" +workid ).html(LoadingBarmin);
+    $.post(root + '?do=core&act=deletetaskers', {deviceid:deviceid,workid:workid}, function(response) {
+		if (response === 'ok') {
+			setTimeout(sayHi,1000);
+		}
+    });   
+}
+function pauseTask(deviceid,workid, event) {
+    event.preventDefault();
+	$(".jobid-" + deviceid +"-" +workid ).html(LoadingBarmin);
+    $.post(root + '?do=core&act=pausetaskers', {deviceid:deviceid,workid:workid}, function(response) {
+		if (response === 'ok') {
+			setTimeout(sayHi,1000);
+		}
+    });  
+}
+function playTask(deviceid,workid, event) {
+    event.preventDefault();
+	$(".jobid-" + deviceid +"-" +workid ).html(LoadingBarmin);
+    $.post(root + '?do=core&act=playtaskers', {deviceid:deviceid,workid:workid}, function(response) {
+		if (response === 'ok') {
+			setTimeout(sayHi,1000);
+		}
+    });   
+}
+function diagnostic(id) {
+	$("#diagnostic").html(LoadingBarmin);
+    $.post(root + "?do=ponsignal&types=1&id=" + id,function(response) {
+        $("#diagnostic").html(response);
+    }, "html");  
+}
+function inspector(idonu,types) {
+	$("#loading").show();
+	$.post(root + "ajax/function.php",{act:'inspector',idonu:idonu,types:types}, function(response) {
+		$("#btn-connect-inspector").html(response);
+	}, "html");
+	$("#loading").hide();
+}
+function funbandwidth(portid,active,types) {
+	$("#loading").show();
+	$.post(root + "?do=bandwidth",{act:'connect',active:active,portid:portid,types:types});
+	$("#loading").hide();
+	setTimeout(sayHi,1000);
+}
+function spliters(get,id) {
+	$("#loading").show();
+	$.post(root + "ajax/fiber.php",{get:get,id:id}, function(response) {
+		$("#spliter_" + id).html(response);
+	}, "html");
+	$("#loading").hide();
+}
+function calendar(act) {
+	$("#loading").show();
+	$.post(root + "ajax/calendar.php",{act:act}, function(response) {
+		$("#ajax").html(response);
+	}, "html");
+	$("#loading").hide();
+}
+function cal_finished(act,id) {
+	$("#loading").show();
+	$(".worker_img").hide();
+	$.post(root + "ajax/calculator.php",{act:act,id:id}, function(response) {
+		$("#ajax_result").html(response);
+	}, "html");
+	$("#loading").hide();
+}
+function scheduler(act,day,month,year) {
+	$("#loading").show();
+	$.post(root + "ajax/calendar.php",{act:act,day:day,month:month,year:year}, function(response) {
+		$("#ajax").html(response);
+	}, "html");
+	$("#loading").hide();
+	if (act === 'delete') {
+		setTimeout(sayHi,1000);
+	}
+}
+function start_time(act,id) {
+	var active;
+    if (act === 'start') {
+        active = 's';
+    } else if (act === 'end') {
+        active = 'e';
+    } else {
+        return;
+    }
+	$(".edit_" + act + "").hide();
+	$.post(root + "ajax/calendar.php",{act:act,id:id}, function(response) {
+		$("#" + act + "_time").html(response);
+	}, "html");
+}
+function form_start_time(act, id) {
+    var active;
+    if (act === 'start') {
+        active = 's';
+    } else if (act === 'end') {
+        active = 'e';
+    } else {
+        console.error('Invalid action type');
+        return;
+    }
+
+    $(".block_" + act + "_time").hide();
+    var timed = $('#form_' + act + '_time').val();
+    
+    $.post(root + "ajax/calendar.php", {act: 'edit_' + active, id: id, timed: timed}, function(response) {
+        $("#" + active + "_time").html(response);
+    }, "html");
+}
+function taskers_get(title,jobid,olt) {
+	if (confirm(title)) {
+		$("#ajax").html(pmon_load);
+		$.post(root + '?do=telnet', {act:'worker',olt:olt,jobid:jobid,result:1}, function(response) {
+			if (response === 'ok') {
+				setTimeout(sayHi, 1000);
+			}
+		});
+	}
+}
+function deletecalendar(type,id,info) {
+	$("#loading").show();
+	event.preventDefault();
+    if (confirm(info)) {
+		$.post(root + "ajax/calendar.php",{act:'delet',id:id,type:type}, function(response) {
+			$("#ajax").html(response);
+		}, "html");
+		setTimeout(sayHi,1000);
+	}
+	$("#loading").hide();
+}
+function updateRedisStats() {
+	$("#redis").html(LoadingBarmin);
+	$.post(root+"?do=operator&act=infredis", function(response) {$("#redis").html(response);}, "html");
+}
+function house_comm(house, kv) {
+	$("#loading").show();
+	$("#comm-" + kv).hide();
+	$.post(root+"?do=house",{act:'formcomm',house:house,kv:kv},function(response){ 
+	$("#statuscron").html(response);
+	}, "html");
+	$("#loading").hide();	
+}
+function house_inf(id) {
+	$("#loading").show();
+	$.post(root+"?do=house",{act:'comm',id:id},function(response){ 
+	$("#statuscron").html(response);
+	}, "html");
+	$("#loading").hide();	
+}
+$(document).on('mouseleave', '[id^=get_vlan_]', function() {
+    $("#vlanPopup").hide();
+});
+function sendVlan(vlan, idonu) {
+    $.post(root + "ajax/getvlan.php", { vlan: vlan }, function(response) {
+        var popup = $("#vlanPopup");
+        popup.html(response);
+        popup.show();
+        var element = $("#get_vlan_" + idonu);
+        var offset = element.offset();
+        popup.css({
+            top: offset.top + element.height() - 50 + "px",
+            left: offset.left - 30 + "px"
+        });
+    }, "html");
+}
+function edithouse(id) {
+	$("#loading").show();
+	$.post(root+"ajax/house.php",{act:'setup',id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+	$("#loading").hide();
+}
+function connecthouse(id) {
+	$("#loading").show();
+	$.post(root+"ajax/house.php",{act:'connect',id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+	$("#loading").hide();
+}
+function clear_fibermap(event, idonu, dataonusid, title) {
+    event.preventDefault();
+    if (confirm(title)) {
+        $.post(root, { do: 'send', act: 'cleared', idonu: idonu, dataonusid: dataonusid })
+            .done(function(response) {
+                location.reload();
+            })
+            .fail(function() {
+                alert('Сталася помилка при обробці запиту.');
+            });
+    }
+}
+
+function confirmonupon(title) {
+	var confirmed = confirm(title);
+    if (confirmed) {
+		$("#loading").show();
+		var id = $('#id').val();	
+		var gettypes = $('#gettypes').val();	
+		var gettree = $('#gettree').val();	
+		var onuid = $('#onuid').val();	
+		$.post(root+"ajax/fiber.php",{get:'connectpononus',onuid:onuid,id:id,gettypes:gettypes,gettree:gettree},function(response){ 	
+		location.reload();	
+		}, "html");
+	}
+}
+function register_quiq_huawei(id,olt) {
+	var confirmed = confirm("Enable?");
+    if (confirmed) {
+		$("#loading").show();
+		var ifindex = $('#onu_ifindex_' + id).val();
+		var onu_sn = $('#onu_sn_' + id).val();
+		var onu_inface = $('#onu_inface_' + id).val();
+		var onu_id = $('#onu_id_' + id).val();
+		var onu_name = $('#onu_name_' + id).val();
+		var onu_vlan = $('#onu_vlan_' + id).val();
+		var onu_invlan = $('#onu_invlan_' + id).val();
+		var onu_lp = $('#onu_lp_' + id).val();
+		var onu_sp = $('#onu_sp_' + id).val();
+		if (!onu_id || !onu_name || !onu_vlan || !onu_invlan || !onu_lp  || !onu_sp ) {
+			alert('Будь ласка, заповніть всі поля.');
+			return;
+		}
+		var data = {
+			ifindex: ifindex,olt: olt, onu_id: onu_id, onu_name: onu_name,onu_vlan: onu_vlan,onu_invlan: onu_invlan,onu_lp: onu_lp,onu_sp: onu_sp,onu_sn: onu_sn,onu_inface: onu_inface
+		};
+		$.post(root + '?do=telnet&act=huaweiregmod1', { data:data }, function(response) {
+			$("#reger_" + id ).hide();
+			$("#loading").hide();
+			setTimeout(sayHi,1000);
+		});
+	}
+}
+$(document).on('mouseleave', '[id^=get_vlan_]', function() {
+    $("#vlanPopup").hide();
+});
+function get_port_control(olt) {
+    $(document).ready(function() {
+        var rationElements = $('[id^="port-control-"]');
+        rationElements.each(function() {
+            var id = this.id.replace('port-control-', '');
+			$("#port-control-"+ id).html(LoadingBarminm);
+            $.post(root + 'ajax/port.php', { act: 'control', port: id , olt: olt }, function(response) {
+                $('#port-control-' + id).html(response);
+            });
+        });
+    });
+}
+function console_pmon(act, olt, port) {
+    var confirmed = confirm("Start work?");
+    if (confirmed) {
+		$("#loading").show();
+		$(".loading").text(act);
+        $.post(root + "ajax/function.php", {
+            act: act,
+            olt: olt,
+            port: port
+        }, function(response) {
+            if (response === 'ok') {
+                setTimeout(sayHi,2000);
+            } else {
+                console.error('Помилка відправлення даних:', response);
+				setTimeout(sayHi,2000);
+            }
+        }, "html");
+    } else {
+        // користувач відмінив дію
+    }
+}
+function graph_signal(id) {
+	$.post(root+"?do=core&act=oltsignal",{id:id},function(response){ 
+	$("#graph_signal").html(response);
+	}, "html");
+	setTimeout('graph_signal('+id+');',500000);	
+}
+function loadponsignal(id) {
+	$.post(root+"?do=core&act=signalpon",{id:id},function(response){ 
+	$("#loadponsignal").html(response);
+	}, "html");
+	setTimeout('loadponsignal('+id+');',500000);	
+}
+function load_note(id) {
+	$.post(root+"ajax/note.php",{act:'list',id:id},function(response){ 
+	$("#load_note").html(response);
+	}, "html");
+}
+function reg_qiuq_huawei(id) {
+	$("#snmp_reger").html(LoadingBarmin);
+	$.post(root+"ajax/reg_qinq_huawei.php",{id:id},function(response){ 
+	$("#snmp_reger").html(response);
+	}, "html");	
+}
+function epon_sla(speed,id,type){
+	$.post(root+'ajax/epon_sla.php',{speed:speed,id:id,type:type,}, 
+		function(response) { 
+			$('#ajax').html(response);
+		}, 'html'
+    );
+}
+function status_ping3() {
+	$.post(root+"ajax/status_ping3.php",function(response){ 
+	$("#status_ping3").html(response);
+	}, "html");
+	setTimeout('status_ping3();',10000);
+}
+function get_console(file) {
+	$.post(root+"ajax/get_console.php",{file:file},function(response){ 
+	$("#result_ajax").html(response);
+	}, "html");
+}
+function block_hide(id) {
+$(location).attr('href');
+	location.reload(); 
+}
+function get_vlan(id) {
+	$("#result_ajax").html(LoadingBarminm);
+	$.post(root+"ajax/core.php",{act:'getvlan',id:id},function(response){ 
+	$("#result_ajax").html(response);
+	}, "html");
+}
+function get_groups(id) {
+	$("#result_ajax").html(LoadingBarminm);
+	$.post(root+"?do=poncalc",{act:'getgoups',id:id},function(response){ 
+	$("#result_ajax").html(response);
+	}, "html");
+}
+function infoto(id) {
+	$("#result_ajax").html(LoadingBarminm);
+	$.post(root+"?do=car",{act:'getto',id:id},function(response){ 
+	$("#result_ajax").html(response);
+	}, "html");
+}
+function del_vlan(id) {
+	$("#result_ajax").html(LoadingBarminm);
+	$.post(root+"ajax/core.php",{act:'deletevlan',id:id},function(response){ 
+	$("#result_ajax").html(response);
+	}, "html");
+}
+function displayGraph(id) {
+    fetch(root + "ajax/bandwidth.php?id=" + id)
+    .then(response => response.json())
+    .then(data => {
+        const chartdiv = am5.Root.new("chartdiv" + id, am5.Root);
+        const seriesIn = chartdiv.series.push(new am5xy.LineSeries());
+        seriesIn.data.setAll(data.data.map((timestamp, index) => ({
+            date: new Date(timestamp),
+            value: data.traffic[index].in
+        })));
+        seriesIn.name = "Вхідний трафік";
+        seriesIn.stroke = am5.color("blue");
+        const seriesOut = chartdiv.series.push(new am5xy.LineSeries());
+        seriesOut.data.setAll(data.data.map((timestamp, index) => ({
+            date: new Date(timestamp),
+            value: data.traffic[index].out
+        })));
+        seriesOut.name = "Вихідний трафік";
+        seriesOut.stroke = am5.color("red");
+        // Вимикаємо відображення точок
+        seriesIn.points.template.disabled = true;
+        seriesOut.points.template.disabled = true;
+        // Встановлюємо опції графіка
+        chartdiv.xAxes.push(new am5xy.DateAxis());
+        chartdiv.yAxes.push(new am5xy.ValueAxis());
+        // Опції для формату дати
+        const dateAxis = chartdiv.xAxes.getIndex(0);
+        dateAxis.renderer.labels.template.adapter.add("text", function(text) {
+            return am5.timeFormatter({ input: "yyyy-MM-dd HH:mm:ss" }).format(text);
+        });
+    });
+}
+
+function displayGraph2(id) {
+    fetch(root + "ajax/bandwidth.php?id=" + id)
+    .then(response => response.json())
+    .then(data => {
+        const container = document.getElementById('graph' + id);
+        const chartContainer = document.createElement('canvas');
+        chartContainer.classList.add('graph-chart');
+        container.appendChild(chartContainer);
+        const ctx = chartContainer.getContext('2d');
+        const myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.data,
+                datasets: [{
+                    label: 'Вхідний трафік',
+                    data: data.traffic.map(entry => entry.in),
+                    borderColor: 'blue',
+                    fill: false,
+                    pointRadius: 0, // Вимкнення відображення точок
+                    tension: 0.2 // Задання ступеня плавності
+                }, {
+                    label: 'Вихідний трафік',
+                    data: data.traffic.map(entry => entry.out),
+                    borderColor: 'red',
+                    fill: false,
+                    pointRadius: 0, // Вимкнення відображення точок
+                    tension: 0.2 // Задання ступеня плавності
+                }]
+            },
+            options: {
+                scales: {
+                    x: { // Вимикаємо вісь X
+                        display: false
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+}
+function updateFields() {
+    var count = parseInt($("#count_tovar").val(), 10);
+    if (!isNaN(count) && count > 0) {
+        $(".dynamic-fields").empty();            
+        for (var i = 1; i <= count; i++) {
+            var container = $("<div>").addClass("field-container");
+            var labelInv = $("<label>").text("Інвентарний номер [" + i + "]");
+            var inputInv = $("<input>").attr({
+                type: "text",
+                name: "sn[" + i + "]",
+                class: "input_cut",
+            });
+            var formContainer = $("<div>").addClass("form_tovar");
+            formContainer.append(labelInv).append(inputInv);
+            container.append(formContainer);
+            var labelMac = $("<label>").text("MAC [" + i + "]");
+            var inputMac = $("<input>").attr({
+                type: "text",
+                name: "mac[" + i + "]",
+                class: "input_cut",
+            });
+            var formContainer_ = $("<div>").addClass("form_tovar_m");
+            formContainer_.append(labelMac).append(inputMac);
+            container.append(formContainer_);
+            $(".dynamic-fields").append(container);
+        }
+    }
+}
+function registerbdcom(styleid,port,mac,olt) {
+	$('#mac-' + styleid).html(LoadingBarmin);
+		$.post(root + '?do=module1',{'act':'register',olt:olt,mac:mac,port:port},function(data) {
+		$('#mac-' + styleid).empty();
+		$('#mac-' + styleid).html(data);
+	});
+}
+function connect_pillar(tpid,pillarid) {
+	$('#tpid-' + pillarid).html(LoadingBarmin);
+		$.post(root + 'ajax/oblenergo.php',{'act':'connect',tpid:tpid,pillarid:pillarid},function(data) {
+		$('#tpid-' + pillarid).empty();
+		$('#tpid-' + pillarid).html(data);
+	});
+}
+function nomdu(oltid) {
+	$('#nomdu').html(LoadingBarmin);
+		$.post(root + 'ajax/nomdu.php',{oltid:oltid},function(data) {
+		$('#nomdu').empty();
+		$('#nomdu').html(data);
+	});
+}
+function show_reason_huawei(idonu) {
+	$('.block_body').show();
+	$('#reason_huawei').html(LoadingBarmin);
+		$.post(root + 'ajax/onthuawei5608_reason.php',{idonu:idonu},function(data) {		
+		$('#reason_huawei').html(data);
+	});
+}
+function get_user_car(carid) {
+	$('#car_' + carid).html(LoadingBarmin);
+		$.post(root + 'ajax/car.php',{act:'add',carid:carid},function(data) {		
+			$('#car_' + carid).html(data);
+	});
+}
+
+function showHideFields() {
+    var typePaidSelect = document.getElementById("type_paid");
+    var moneyField = document.getElementById("moneyField");
+    var dogNumberField = document.getElementById("dogNumberField");
+    if (typePaidSelect.value === "1") {
+		moneyField.style.display = "block";
+		dogNumberField.style.display = "none";
+    } else if (typePaidSelect.value === "3") {
+		moneyField.style.display = "none";
+		dogNumberField.style.display = "block";
+    } else {
+		moneyField.style.display = "none";
+		dogNumberField.style.display = "none";
+    }
+}
+function validateForm() {
+	var checkboxes = document.querySelectorAll('.checkcss');
+	var isChecked = false;
+	checkboxes.forEach(function(checkbox) {
+	if (checkbox.checked) {
+		isChecked = true;
+	}
+	});
+	if (!isChecked) {
+		alert('Будь ласка, виберіть хоча б одну лінію');
+		return false;
+	}	
+	var selectedValue = document.getElementById('type_pillar').value;
+    if (selectedValue === "0") {
+        alert('Будь ласка, оберіть тип стовпа.');
+        return false;
+    }
+	return true;
+}
+function switchMap(mapType) {
+    if (map.hasLayer(layers[currentMap])) {
+        map.removeLayer(layers[currentMap]);
+    }
+    map.addLayer(layers[mapType]);
+    currentMap = mapType;
+}
+function PMonexportToExcel(table,namefile) {
+    var table = document.getElementById(table); 
+    var data = [[]];
+    for (var i = 0; i < table.rows[0].cells.length; i++) {
+        data[0].push(table.rows[0].cells[i].innerText);
+    }
+    for (var i = 1; i < table.rows.length; i++) {
+        var row = [];
+        for (var j = 0; j < table.rows[i].cells.length; j++) {
+            row.push(table.rows[i].cells[j].innerText);
+        }
+        data.push(row);
+    }
+    var ws = XLSX.utils.aoa_to_sheet(data);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "PMon");
+    XLSX.writeFile(wb, "pmon_zvit_" + namefile + ".xlsx");
+}
+function get_object_port() {
+	$('.load-port').each(function() {
+		var element = $(this);
+		var id = element.attr('id');
+		var idArray = id.split('-');
+		var device = idArray[1];
+		var port = idArray[2];    
+		$.post(root+'ajax/port.php', { act: 'status', device: device , port: port })
+		.done(function(response) {
+			element.html(response);
+		})
+		.fail(function() {
+			element.html('Error occurred while loading.');
+		});
+		}
+	);
+}
+function sendDataOnChange(checkbox) {
+	$("#loading").show();
+    var switchId = $(checkbox).siblings('.checkbox-ya-switch').find('.checkbox-ya-feature').data('switch');
+    var port = $(checkbox).siblings('.checkbox-ya-switch').find('.checkbox-ya-feature').data('port');
+    var cmd = $(checkbox).siblings('.checkbox-ya-switch').find('.checkbox-ya-feature').data('status');
+    var dataToSend = {
+        'act': 'port',
+        'status': cmd,
+        'switch': switchId,
+        'port': port
+    };
+    $.ajax({
+        type: 'POST',
+        url: root+"ajax/port.php",
+        data: dataToSend,
+        success: function(response) {
+			if (response == 'ok') {
+				window.location.href = "/?do=detail&act=olt&page=connect&id=" + switchId;
+			}
+        },
+        error: function(xhr, status, error) {
+			$("#loading").hide();
+            console.error('Помилка відправлення даних:', error);
+        }
+    });
+}
+function showForm() {
+    const select = document.getElementById("categorySelect");
+    const selectedValue = select.value;
+    const formContainer = document.getElementById("telegramform");
+	$.post(root+"ajax/telegram.php",{types:selectedValue,act:'select'},function(response){ 
+			$("#telegramform").html(response);
+		}, "html");
+}
+function loadsetuptelegram(selectedValue) {
+	$.post(root+"ajax/telegram.php",{types:selectedValue,act:'select'},function(response){ 
+		$("#telegramform").html(response);
+	}, "html");
+}
+function loadoblenergo(id) {
+	 map.eachLayer(function (layer) {
+        if (layer instanceof L.Marker) {
+            map.removeLayer(layer);
+        }
+    });
+	$.post(root+"ajax/oblenergo.php",{act:'listtp',id:id},function(response){ 
+		$("#ajax_oblenergo").html(response);
+	}, "html");
+}
+function showtpmap(id) {
+    var selecttp = $('input[name="tp[]"]:checked').map(function () {
+        return this.value;
+    }).get();
+    $.post(root + "ajax/oblenergo.php", { act: 'markertp', id: id, selecttp: selecttp }, function (response) {
+		updateMarkers(response);
+    });
+}
+function updateMarkers(response) {
+    var newMarkers = JSON.parse(response);
+    map.eachLayer(function (layer) {
+        if (layer instanceof L.Marker) {
+            map.removeLayer(layer);
+        }
+    });    
+	map.eachLayer(function (layer) {
+        if (layer instanceof L.Polyline) {
+			map.removeLayer(layer);
+		}
+    });
+    for (var i = 0; i < newMarkers['pillar'].length; i++) {
+        var marker = L.marker([newMarkers['pillar'][i].lan, newMarkers['pillar'][i].lon], {
+            icon: L.divIcon({
+                className: 'mapper',
+                html: '<div class="' + newMarkers['pillar'][i].classicon + '"><img src="../style/img/' + newMarkers['pillar'][i].mappericon + '"></div>'
+            })
+        });
+        marker.bindTooltip(newMarkers['pillar'][i].nomer_pillar);
+        marker.addTo(map);
+    }    
+	for (var i = 0; i < newMarkers['line'].length; i++) {
+		var lineCoords = [
+			[parseFloat(newMarkers['line'][i].start_1), parseFloat(newMarkers['line'][i].end_1)],
+			[parseFloat(newMarkers['line'][i].start_2), parseFloat(newMarkers['line'][i].end_2)]
+		];		
+		var polyline = L.polyline(lineCoords, { color: "red" }).bindTooltip(newMarkers['line'][i].name).addTo(map);
+	}
+}
+function updateMarkers_(response) {
+    var newMarkers = JSON.parse(response);
+    map.eachLayer(function (layer) {
+        if (layer instanceof L.Marker) {
+            map.removeLayer(layer);
+        }
+    });
+    for (var i = 0; i < newMarkers.length; i++) {
+        var marker = L.marker([newMarkers[i].lan, newMarkers[i].lon], {
+            icon: L.divIcon({
+                className: 'mapper',
+                html: '<div class="' + newMarkers[i].classicon + '"><img src="../style/img/' + newMarkers[i].mappericon + '"></div>'
+            })
+        });
+        marker.bindTooltip(newMarkers[i].nomer_pillar);
+        marker.addTo(map);
+    }
+}
+function getPingData(id) {
+    return fetch(root + 'ajax/pchartping.php?id=' + id) // Додаємо id у URL запиту
+        .then(response => response.json())
+        .catch(error => console.error('Помилка отримання даних:', error));
+}
+function showHideBlock(blockvlan, btn) {
+	var block = document.getElementById(blockvlan);
+	var button = document.getElementById(btn);
+
+	if (block.style.display === 'none') {
+    block.style.display = 'block'; // Показати блок
+    button.textContent = 'Приховати'; // Змінити текст кнопки
+	} else {
+    block.style.display = 'none'; // Приховати блок
+    button.textContent = 'Менеджер'; // Змінити текст кнопки
+	}
+}
+function loadhouse(id, name) {
+    const popupContent = document.getElementById(`popup-content-${id}`);
+    if (popupContent.innerHTML === '<strong>Loading...</strong>') {
+        // Виконуємо AJAX запит на сервер для отримання повної інформації
+        fetch('/?do=house&act=info&id=' + id)
+            .then(response => response.json())
+            .then(data => {
+                // Формуємо HTML з отриманих даних
+                const photo = data.photo ? `<div class="corect_photo"><img src="/?do=thumb&type=photo&img=${data.photo}&s=1"></div>` : '';
+                const html = `${photo}<a href="/?do=house&act=view&id=${id}">${name}</a><br>Onu: ${data.onus}/<font color="green">${data.online}</font>/<font color="red">${data.offline}</font>`;
+                popupContent.innerHTML = html;
+            })
+            .catch(error => {
+                popupContent.innerHTML = '<strong>Error loading data</strong>';
+            });
+    }
+}
+function collectDataIds(idhouse,title) {
+	if (confirm(title)) {
+	$("#loading").show();
+    var divElements = document.querySelectorAll('td[data-id]');
+    var dataIds = [];
+    divElements.forEach(function (div) {
+        dataIds.push(div.getAttribute('data-id'));
+        });
+		$.post(root+"poller.php",{data:dataIds,idhouse:idhouse,jobid:100,act:'house'},function(response){ 
+			$("#sendersnmp").html(response);
+		}, "html");
+		setTimeout(sayHi,2000);
+	}
+}
+function collectDataFiber(treeid) {
+	$("#dataload").html(LoadingBarminm);
+    var divElements = document.querySelectorAll('a[data-id]');
+    var dataIds = [];
+    divElements.forEach(function (div) {
+        dataIds.push(div.getAttribute('data-id'));
+        });
+		$.post(root+"poller.php",{data:dataIds,treeid:treeid,jobid:100,act:'treeid'},function(response){ 
+			if (response === 'ok') {
+                setTimeout(sayHi, 2000);
+            } else {
+                console.error('Помилка відправлення даних:', response);
+				setTimeout(sayHi,2000);
+            }
+		}, "html");
+    }
+function insert_pole(name, idelement) {
+    var element = document.querySelector(idelement);
+    if (element) {
+        element.value = name;
+		$(".resultpoiskonu").hide();
+    } else {
+        console.error("Елемент з ідентифікатором " + idelement + " не знайдений.");
+    }
+}
+function addedhouse(info) {
+	var streetname = $('#streetname').val();
+	if (!streetname) {
+		alert(info);
+		return;
+	}
+	const json = convertFormToJSON("#house");
+	$.post(root + "?do=house&act=save", {data: json}, function(response) { 
+		$("#house").html(response);
+	}, "html");
+	window.location.href = '/?do=house';
+}
+function ponunit_send(treeid) {
+	var ponunit = $('#ponunit_' + treeid).val();
+	if (ponunit !== "") {
+		$.post(root+"?do=fiber&act=savemove",{treeid:treeid,ponunit:ponunit},function(response){ 
+			$('#result_' + treeid).html(response);
+		}, "html");
+	}
+}
+function kninsert(houseid, knindex) {
+    var onu = $('#onu').val();
+    var kvnomer = $('#kvnomer').val();
+    var dogovir = $('#dogovir').val();
+    if (onu !== "") {
+        $.post(root + 'ajax/house.php', { act: 'insertonu', dogovir: dogovir, houseid: houseid, knindex: knindex, onu: onu , kvnomer: kvnomer }, function(response) {
+            if (response === 'success') {
+                // Перехід на іншу сторінку, наприклад:
+                window.location.href = '/?do=house&act=view&id=' + houseid;
+            } else {
+                console.log("Помилка під час вставки");
+            }
+        });
+    } else {
+        console.log("Empty onu");
+    }
+}
+function freeindex(value) {
+        document.getElementById("inface_ont").value = value; // Вставка значення у поле вводу з id="freename"
+    }
+function regeronu(id) {
+    $("#loading").show();
+    const json = convertFormToJSON("#formregonu-" + id);
+    var debug_mode = document.getElementById("debug_mode");
+    $.post(root + "?do=regonu&act=register", { data: json }, function(response) {
+        if (debug_mode && debug_mode.checked) {
+			$("#loading").hide();
+            $("#result-reger-" + id).html(response);
+        } else {
+            if (response === 'ok') {
+                setTimeout(sayHi, 2000);
+            } else {
+                $("#loading").hide();
+                console.error('Помилка відправлення даних:', response);
+            }
+            $("#result-reger-" + id).hide();
+        }
+    }, "html").fail(function(jqXHR, textStatus, errorThrown) {
+        $("#loading").hide();
+        console.error('Помилка відправлення запиту:', errorThrown);
+    });
+}
+
+function switch_ajax(id) {
+	$.post(root+"ajax/switch.php",{id:id},function(response){ 
+	$("#switch_ajax").html(response);
+	}, "html");
+}
+function togglePidvalInput() {
+	var pidvalCheckbox = document.getElementById("pidvalCheckbox");
+	var pidvalInput = document.getElementById("pidvalInput");
+	if (pidvalCheckbox.checked) {
+        pidvalInput.style.display = "block";
+	} else {
+        pidvalInput.style.display = "none";
+	}
+}
+function regonu_(olt,idreger,pon,ont,index,infoonu) {
+	var select_vlan = $('#vlan_select_' + olt ).val();
+	$.post(root + '?do=regonu',{'act':'start',olt:olt,pon:pon,ont:ont,index:index,infoonu:infoonu},function(data) {
+		$('#reger_1_' + idreger).empty();
+		$('#reger_1_' + idreger).html(data);
+	});
+}
+function regonu(olt, idreger, pon, ont, index, infoonu, idblock) {
+    var select_vlan = $('#vlan_select_' + idblock);    
+    var postData = {
+        'act': 'start',
+        'olt': olt,
+        'pon': pon,
+        'ont': ont,
+        'index': index,
+        'infoonu': infoonu
+    };
+    if (select_vlan.length > 0) {
+        postData['select_vlan'] = select_vlan.val();
+    }
+    $.post(root + '?do=regonu', postData, function(data) {
+        $('#reger_' + idblock).empty().html(data);
+    });
+}
+function gethouse(act) {
+	$('#skyscraper').html(LoadingBarmin);
+		$.post(root + 'ajax/house.php',{act:act},function(data) {
+		$('#skyscraper').html(data);
+	});
+}
+function runprogress(id) {
+	$('#process_' + id).html(LoadingBarmin);
+		$.post(root + 'poller.php',{'jobid':id},function(data) {
+		$('#process_' + id).hide();
+	});
+}
+function r(name,olt,index,sn) {
+	$('#form_' + olt).html(LoadingBarmin);
+		$.post(root + '?do=regonu',{'act':'register',olt:olt,name:name,index:index,sn:sn},function(data) {
+		$('#form_' + olt).empty();
+		$('#form_' + olt).html(data);
+	});
+}
+function searchByMAC() {
+    var mac = document.getElementById('getmac').value;
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+             document.getElementById('searchmac').innerHTML = xhr.responseText;
+        }
+    };
+    xhr.open('POST', root + 'ajax/searchmac.php', true);
+    xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+    xhr.send('mac=' + mac);
+}
+		
+function addelement(id,type,tree) {
+	$.post('/ajax/fiber.php', {
+	   get: 'formelemet', id: id , type: type , tree: tree }, function(response) {
+	$(".addelement_" + id).html(response);
+	}, "html");
+}
+function copyToClipboard() {
+	var text = document.getElementById("macAddress").textContent;
+	var tempInput = document.createElement("textarea");
+	tempInput.value = text;
+	document.body.appendChild(tempInput);
+	tempInput.select();
+	tempInput.setSelectionRange(0, 99999);
+	document.execCommand("copy");
+	document.body.removeChild(tempInput);
+}
+const dropdowns = document.querySelectorAll(".dropdown");
+dropdowns.forEach((dropdown) => {
+	const dropdownMenu = dropdown.querySelector(".dropdown-menu");
+	dropdown.addEventListener("mouseover", () => {
+		dropdownMenu.style.display = "block";
+	});
+	dropdown.addEventListener("mouseout", () => {
+		dropdownMenu.style.display = "none";
+	});
+});
+function rebilgingunregistr(temp) {
+	var template = $('#template').val();
+	var type = $('#type').val();
+	$("#add").hide();
+    if (template !== "") {
+		$.post(root + '?do=regonu',{'act': 'rebilding',name: temp,template:template,type:type}, function(response) {
+			$("#tempresult").html(response);
+		});
+		setTimeout(sayHi,2000);
+    } else {
+        console.log("Textarea порожня");
+    }
+}
+function deletunregistr(temp,key,value) {
+    $.post(root + '?do=regonu', {
+        'act': 'saveservice',
+        type: 'del',
+        temp: temp,
+        name: key,
+        value: value
+    }, function(response) {
+        $("#key-" + temp + "-" + value).html(response);
+    });
+	setTimeout(sayHi,2000);
+}
+function deletunregistrolt(temp,key,value) {
+    $.post(root + '?do=regonu', {
+        'act': 'saveaccesolt',
+        type: 'del',
+        temp: temp,
+        name: key,
+        value: value
+    }, function(response) {
+        $("#key-" + temp + "-" + value).html(response);
+    });
+	setTimeout(sayHi,2000);
+}
+function car(act, id) {
+    $("#loading").show();
+    let postData = { act: act, id: id };
+    if (act === 'takefinish') {
+        postData.odometr = $('#odometr').val();
+        postData.money = $('#money').val();
+        postData.deadline = $('#deadline').val();
+    }
+    const handleResponse = (response) => {
+        $("#ajax_tocar").html(response);
+        $("#loading").hide();
+    };
+    const finalize = () => {
+        if (act === 'todelet' || act === 'takefinish') {
+            
+        } else {
+            $(".panel_to").hide();
+        }
+    };
+    $.post(root + '?do=car', postData, handleResponse)
+        .fail(() => {
+            $("#loading").hide();
+            alert('Помилка при виконанні запиту.');
+        })
+        .always(finalize);
+}
+
+function unregistr(name,act) {
+	$("#b-" + name).html(LoadingBarmin);
+	$.post(root+'ajax/regonu.php',{name:name,act:act},function(data) {
+		$("#k-" + name).hide();
+		$("#b-" + name).html(data);
+	});
+}
+function sendunregistr(temp, type) {
+    var name = $('#name').val();
+    var value = $('#value').val();
+    var act = $('#act').val();
+    $("#result-" + temp).html(LoadingBarmin);
+	$("#b-" + temp).empty();
+	$("#k-" + temp).show();
+    $.post(root + '?do=regonu', {
+        act: act,
+        temp: temp,
+        name: name,
+        type: type,
+        value: value
+    }, function(response) {
+        $("#result-" + temp).html(response);
+    });
+	setTimeout(sayHi,2000);
+}
+function cisco_3000_sfp(id) {
+	$('#cisco_3000_sfp').html(LoadingBarminm);
+	$.post(root+'ajax/cisco_3000_sfp.php',{id},function(data) {
+		$('#cisco_3000_sfp').html(data);
+	});
+}
+function mikrotik_ccr_sfp(id) {
+	$('#mikrotik_ccr_sfp').html(LoadingBarminm);
+	$.post(root+'ajax/mikrotik_ccr_sfp.php',{id},function(data) {
+		$('#mikrotik_ccr_sfp').html(data);
+	});
+}
+function trafficport(portid,oltid) {
+	$.post(root+'ajax/graph_trafficport.php',{portid:portid,oltid:oltid},function(data) {
+		$('#trafficport').html(data);
+	});
+}
+function showtraffic(oltid,portid) {
+	$.post(root+'ajax/graph_trafficport_switch.php',{portid:portid,oltid:oltid},function(data) {
+		$('#trafficport').html(data);
+	});
+}
+function getswitch(id) {
+	$.post(root+'ajax/getswitch.php',{id:id},function(data) {
+		$('#getswitch').html(data);
+	});
+}
+function ajaxstatsport(id,port) {
+	$('#ajaxsfpstats').html(LoadingBarmin);
+	$.post(root+'ajax/ajaxstats.php',{id:id,port:port},function(data) {
+		$('#ajaxsfpstats').empty();
+		$('#ajaxsfpstats').html(data);
+	});
+}
+function showbadsignal(id,signal) {
+	$('#result_graph_signal').html(LoadingBarmin);
+	$.post(root+'ajax/listbadsignal.php',{id:id,signal:signal},function(data) {
+		$('#result_graph_signal').empty();
+		$('#result_graph_signal').html(data);
+	});
+}
+function badsignal(signal) {
+	window.location.href = '/?do=listbadsignal&signal=' + signal;
+}
+function deletonu(idonu, olt) {
+	$.post(root+'?do=send&act=deletonu',{idonu:idonu});	
+	window.location.href = '/?do=detail&act=olt&id=' + olt;
+}
+function showbadsignalpage(page,signal) {
+	$('#listbadsignal').html(LoadingBarmin);
+	$.post(root+'ajax/listbadsignal.php',{page:page,signal:signal},function(data) {
+		$('#listbadsignal').empty();
+		$('#listbadsignal').html(data);
+	});
+}
+function ajaxstatsolt(id,act) {
+	$('#ajaxsfpstats').html(LoadingBarmin);
+	$.post(root+'ajax/ajaxstats.php',{id:id,act:act},function(data) {
+		$('#ajaxsfpstats').empty();
+		$('#ajaxsfpstats').html(data);
+	});
+}
+function ajaxstikers(idonu,act) {
+	$('#ajaxstikers').html(LoadingBarmin);
+	$.post(root+'ajax/ajaxstikers.php',{idonu:idonu,act:act},function(data) {
+		$('#ajaxstikers').empty();
+		$('#ajaxstikers').html(data);
+	});
+}
+function rebootallonubdcom(id, port) {
+    var confirmed = confirm("Reboot ONU?");    
+    if (confirmed) {
+        $('#statuscron').html(LoadingBarmin);
+        $.post(root + 'ajax/function.php', {
+            act: 'bdcomrebootonu',
+            id: id,
+            port: port
+        }, function(data) {
+            $('#statuscron').empty();
+            $('#statuscron').html(data);
+        });
+    }
+}
+function checkerpon(olt, pon) {
+    var confirmed = confirm("Check onu?");    
+    if (confirmed) {
+		$("#loading").show();
+        $.post(root + 'poller.php', {
+            act: 'pon',
+            jobid: 100,
+            olt: olt,
+            pon: pon
+        }, function(response) {
+            if (response === 'ok') {
+                setTimeout(sayHi, 2000);
+            }
+        });
+    }
+}
+function ajaxbattery(id,act) {
+	$('#ajaxbattery').html(LoadingBarmin);
+	$.post(root+'ajax/battery.php',{id:id,act:act},function(data) {
+		$('#ajaxbattery').empty();
+		$('#ajaxbattery').html(data);
+	});
+}
+function ajaxping3(id,act) {
+	$('#ajaxping3').html(LoadingBarmin);
+	$.post(root+'ajax/ping3.php',{id:id,act:act},function(data) {
+		$('#ajaxping3').empty();
+		$('#ajaxping3').html(data);
+	});
+}
+function cheknoregonu(id) {
+	$.post(root+'?do=regonu',{act:id},function(data) {
+		$('#noregonu').html(data);
+	});	
+}
+function blacklist(id) {
+	$('#blacklist').html(LoadingBarmin);
+	const json = convertFormToJSON("#blacklist-" + id);
+	$.post(root+'?do=blacklist12&act=del',{data:json},function(data) {
+		$("#blacklist-" + id).html(data);
+	});
+}
+function blacklistdel11(id) {
+	$("#bts-" + id).hide();
+	const json = convertFormToJSON("#blacklist-" + id);
+	$.post(root+'?do=blacklist11&act=del',{data:json},function(data) {
+		$("#blacklist-" + id).html(data);
+		setTimeout(sayHi,7000);
+	});
+}
+function blacklist12(id) {
+	$.post(root+'?do=blacklist12&act=getlist&id=' + id,function(data) {
+		$('#blacklist12').empty();
+		$('#blacklist12').html(data);
+	});
+	setTimeout('blacklist12(' + id + ');',150000);
+}
+function huaweionuerror(id) {
+	$.post(root+'ajax/huaweionuerror.php',{id:id},function(data) {
+		$('#huaweionuerror').html(data);
+	});
+	setTimeout('huaweionuerror('+id+');',50000);	
+}
+function details_taskers(id) {
+	$.post(root+'?do=core&act=taskers',{id:id},function(data) {
+		$('#details_taskers').html(data);
+	});
+	setTimeout('details_taskers('+id+');',50000);	
+}
+function bdcomonuerror(id) {
+	$.post(root+'ajax/bdcomonuerror.php',{id:id},function(data) {
+		$('#bdcomonuerror').html(data);
+	});
+	setTimeout('bdcomonuerror('+id+');',50000);	
+}
+function blacklist11(id) {
+	$.post(root+'?do=blacklist11&act=getlist&id=' + id,function(data) {
+		$('#blacklist11').empty();
+		$('#blacklist11').html(data);
+	});
+	setTimeout('blacklist11(' + id + ');',150000);
+}
+function ajaxcar() {
+	$.post(root+'ajax/car.php',{act:'driver'},function(data) {
+		$('#main-car').html(data);
+	});
+	//setTimeout('ajaxcar();',5000);
+}
+
+function regonuzte(id,act) {
+	const json = convertFormToJSON("#goregonu-" + id);
+	$("#goregonu-" + id).html(LoadingBarmin);
+	$.post(root+"?do=regonu&act=" + act,{data:json},function(response){ 
+	$("#goregonu-" + id).html(response);
+	}, "html");
+}
+function ajaxconnection(id) {
+	$.post(root+'ajax/editor.php',{get:'connection',id:id},function(data) {
+		$('#connector').html(data);
+	});
+}
+function savepositionelement(xleft,xtop,kabel) {
+	$.post(root+'ajax/fiber.php',{ get:'saveposition',left: xleft,top: xtop,kabel: kabel});	
+}
+//Живой поиск
+$(function(){
+  var queryTimeout;  
+  $('.form_search').on('input', function() {
+    clearTimeout(queryTimeout);
+    var query = $(this).find('input[name="zapros"]').val();
+    if (query.length >= 2) {
+      queryTimeout = setTimeout(function() {
+        $.ajax({
+          url: root + "ajax/search.php",
+          type: "POST",
+          data: {zapros: query},
+          dataType: "text",
+          success: function(data) {
+            $("#ajax_search").html(data).fadeIn();
+          }
+        });
+      }, 500); // Wait for 500 milliseconds before sending the request
+    }
+  });
+});
+//Живой пошук ОЛТ
+$(function(){
+  var queryTimeouts;  
+  $('.searchform').on('input', function() {
+    clearTimeout(queryTimeouts);
+    var query = $(this).find('input[name="zapros"]').val();
+	var typedevice = $('#typedevice').val();
+    if (query.length >= 1) {
+      queryTimeouts = setTimeout(function() {
+        $.ajax({
+          url: root + "ajax/search_olt.php",
+          type: "POST",
+          data: {zapros: query,typedevice: typedevice},
+          dataType: "text",
+          success: function(data) {
+            $("#result-ajax").html(data).fadeIn();
+          }
+        });
+      }, 500);
+    }
+  });
+});
+
+function get_object_sfp() {
+	$('.load-sfp-data').each(function() {
+    var element = $(this);
+    var id = element.attr('id');
+    var idArray = id.split('-');
+    var iddevice = idArray[1];
+    var idport = idArray[2];    
+    $.post(root+'ajax/getsfp.php', { iddevice: iddevice, idport: idport })
+    .done(function(response) {
+        element.html(response);
+    })
+    .fail(function() {
+        element.html('Error occurred while loading.');
+    });
+	});
+}
+function addColorFields() {
+	var volokonCount = document.getElementById("volokon").value;
+	var moduleCount = document.getElementById("modules").value;
+	var colorsDiv = document.getElementById("colors");
+	colorsDiv.innerHTML = "";	  
+	if (moduleCount > 0) {
+	for (var j = 1; j <= moduleCount; j++) {
+		var moduleDiv = document.createElement("div");
+		moduleDiv.id = "moduleblock";
+		moduleDiv.innerHTML = "<div class=namemodule><span>Колір для модуля #" + j + "</span> <input class='selcolor' type='color' id='mon" + j + "' name='mod" + j + "' ></div>";
+		for (var i = 1; i <= volokonCount; i++) {
+			var label = document.createElement("label");
+			label.for = "vol" + j + "_" + i;
+			label.innerHTML = "<span>Колір волокна #" + i + "</span> <input class='selcolor' type='color' id='vol" + j + "_" + i + "' name='vol" + j + "_" + i + "'>";
+			moduleDiv.appendChild(label);
+		}
+		colorsDiv.appendChild(moduleDiv);
+	}
+	}
+}
+function search_pmon() {
+    document.getElementById("search_form_pmon").classList.toggle("show");
+}
+function sendcomments(id){
+	id = parseInt(id);
+	var name = $('#commentonu').val();	
+	$('#comment').html(LoadingBar);
+    $.post(root+'ajax/commentonu.php',{'act':'save',id:id,name:name},function(response){
+	$('#comment').empty();
+	$('#comment').html(response);},'html');
+}
+function checkStatusCron(id) {
+	$.post(root+'ajax/statuscron.php',{id:id},function(data) {
+		$('#statuscron').html(data);
+	});
+	setTimeout('checkStatusCron('+id+');',50000);	
+}
+function get_signal_sfp() {
+	$('#block_signal').html(LoadingBarmin);
+	$.post(root+'ajax/ajaxstats.php',function(data) {
+		$('#block_signal').empty();
+		$('#block_signal').html(data);
+	});
+}
+function get_board() {
+	$('#main-board').html(LoadingBarmin);
+	$.post(root+'ajax/board.php',function(data) {
+		$('#main-board').empty();
+		$('#main-board').html(data);
+	});
+}
+function ajaxloadonu(id) {
+	id = parseInt(id);
+	$('#port-onu').html(LoadingBar);
+    $.post(root+'ajax/loadonu.php',{id:id},function(response){
+	$('#port-onu').empty();
+	$('#port-onu').html(response);},'html');
+}
+function ajaxsfp(id) {
+	$('#ajaxsfp').html(LoadingBarmin);
+	$.post(root+'ajax/ajaxsfp.php',{id:id},function(data) {
+		$('#ajaxsfp').empty();
+		$('#ajaxsfp').html(data);
+	});	
+}
+function ajaxbilling(id){
+	id = parseInt(id);
+	$('#ajax-billing').html(LoadingBar);
+    $.post(root+'ajax/billing.php',{id:id,types:'base'},function(response){
+	$('#ajax-billing').empty();
+	$('#ajax-billing').html(response);},'html');
+}
+function historysignal(id){
+	id = parseInt(id);
+	$('#historysignal').html(LoadingBar);
+    $.post(root+'ajax/historysignal.php',{id:id},function(response){
+	$('#historysignal').empty();
+	$('#historysignal').html(response);},'html');
+}
+function billing(id){
+	id = parseInt(id);
+	$('#ajax-billing').html(LoadingBar);
+    $.post(root+'ajax/billing.php',{types:'onu',id:id},function(response){
+	$('#ajax-billing').empty();
+	$('#ajax-billing').html(response);},'html');
+}
+function ajaxponmodule(act,id,unitid) {
+	$('#ajax').html(LoadingBar);
+	$.post(root+"ajax/unit.php",{act:act,id:id,unitid:unitid},function(response){
+	$('#ajax').empty();
+	$('#ajax').html(response);},'html');
+}
+function editcomments(id){
+	id = parseInt(id);    
+	$('#comment').html(LoadingBar);
+	$.post(root+'ajax/commentonu.php',{'act':'edit',id:id},function(response){
+	$('#comment').empty();
+	$('#comment').html(response);},'html');
+}
+function historycomment(id){
+	id = parseInt(id);   
+	$('#btnhistorycomm').html(LoadingBar);	
+	$.post(root+'ajax/commentonu.php',{'act':'list',id:id},function(response) { 
+	$('#historycomment').html(response);},'html');
+}
+function ajaxmain(act,id) {
+	$("#main-" + act).html(LoadingBar);
+	$.post(root+"ajax/main.php",{act:act,id:id},function(response){ 
+		$("#main-" + act).empty();
+		$("#main-" + act).html(response);
+	}, "html");
+}
+function funcore(act,idonu,id) {
+	var name = $('#descr').val();
+	$.post(root+"ajax/function.php",{act:act,idonu:idonu,id:id,name:name}, 
+	function(response){ 
+	}, 'html');
+	setTimeout(sayHi,1000);
+}
+function funcpanel(act, idonu, id) {
+	$("#block-ont-"+ idonu).html(LoadingBar);
+	$.post(root+"ajax/function.php",{act:act,idonu:idonu,id:id}, 
+	function(response){ 
+		$("#block-ont-"+ idonu).empty();
+		$("#block-ont-"+ idonu).html(response);
+	}, 'html');
+}
+function funcpanel_(act, idonu, id) {
+	$("#"+ id).html(LoadingBar);
+	$.post(root+"ajax/core.php",{act:act,idonu:idonu}, 
+	function(response){ 
+		$("#"+ id).empty();
+		$("#"+ id).html(response);
+	}, 'html');
+}
+function tvportdown(act,olt,idonu,port) {
+	$("#ajax").html(LoadingBar);
+	$.post(root+"ajax/function.php",{act:act,olt:olt,idonu:idonu,port:port},'html');
+		setTimeout(sayHi,1000);
+}
+function funcpaneldel(act, idonu, olt, port) {
+    $("#loading").show();
+    $.post(root + "ajax/function.php", {
+        act: act,
+        idonu: idonu,
+        olt: olt
+    },
+    function (response) {
+		$("#loading").hide();
+		$(".sd5").hide();
+        if (response == 'ok') {
+            window.location.href = "/?do=terminal&id=" + olt + "&port=" + port;
+        } else if (response == 'onu') {
+			window.location.href = "/?do=onu&id=" + idonu;
+        } else {
+            $("#block-ont-" + idonu).empty();
+            $("#block-ont-" + idonu).html(response);
+        }
+    }, 'html');
+}
+function funcpaneldel_ok(act, idonu, olt, port, tochno) {
+    $("#loading").show();
+	var confirmed = confirm(tochno);    
+		if (confirmed) {
+		$.post(root + "ajax/function.php", {
+			act: act,
+			idonu: idonu,
+			olt: olt
+		},
+		function (response) {
+			$("#loading").hide();
+			$(".sd5").hide();
+			if (response == 'ok') {
+				window.location.href = "/?do=terminal&id=" + olt + "&port=" + port;
+			} else if (response == 'onu') {
+				window.location.href = "/?do=onu&id=" + idonu;
+			} else {
+				$("#block-ont-" + idonu).empty();
+				$("#block-ont-" + idonu).html(response);
+			}
+		}, 'html');
+	}else{
+		$("#loading").hide();
+	}
+}
+function ajaxont(id) {
+	$('#ont').html(LoadingBar);
+	$.post(root+"ajax/ont.php",{id:id},function(response){ 
+		$('#ont').empty();
+		$('#ont').html(response);
+	}, "html");
+	setTimeout('ajaxont('+id+');',5000000);	
+}
+function ajaxpanel(id) {
+	$('#panel-ont').html(LoadingBar);
+	$.post(root+"ajax/panel.php",{id:id},
+		function(response){ 
+			$('#panel-ont').empty();
+			$('#panel-ont').html(response);
+		}, "html");
+	setTimeout('ajaxpanel('+id+');',5000000);	
+}
+function ajaxdevicestatus(id) {
+	$('#ajaxdevice').html(LoadingBar);
+	$.post(root+"ajax/status.php",{id:id},function(response){ 
+		$('#ajaxdevice').empty();
+		$("#ajaxdevice").html(response);
+	}, "html");
+	setTimeout('ajaxdevicestatus('+id+');',50000);	
+}
+function markmap(id) {
+	var lan = $('#lan').val();
+	var lon = $('#lon').val();
+	$.post(root,{do:'send',act:'markonu',id:id,lan:lan,lon:lon});
+	setTimeout(sayHi,1000);
+}
+function addmapper(id) {
+	var lan = $('#lan').val();
+	var lon = $('#lon').val();
+	$.post(root,{do:'send',act:'addmapper',id:id,lan:lan,lon:lon});
+	$(location).attr('href');
+	location.reload(); 
+}
+function addmapperip(id) {
+	var lan = $('#lan').val();
+	var lon = $('#lon').val();
+	$.post(root+"?do=send",{do:'send',act:'addmapperip',id:id,lan:lan,lon:lon});
+	window.location.href = "/?do=monitorip&act=view&id=" + id;
+}
+function ajaxuid(act,id) {
+	$.post(root+"ajax/comment.php",{act:act,id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function Realontdata(id) {
+	$(location).attr('href');
+	location.reload(); 
+}
+function convertFormToJSON(form) {
+    const array = $(form).serializeArray();
+    const json = {};
+    $.each(array, function () {
+        json[this.name] = this.value || "";
+    });
+    return json;
+}
+function ajaxzte610(id) {
+	$('#ajaxzte610').html(LoadingBarminm);
+	$.post(root+"ajax/ontzte610.php",{id:id},function(response){ 
+	$("#ajaxzte610").html(response);
+	}, "html");
+	setTimeout('ajaxzte610('+id+');',500000);	
+}
+function ajaxzte320(id) {
+	$('#ajaxzte320').html(LoadingBarminm);
+	$.post(root+"ajax/ontzte320.php",{id:id},function(response){ 
+	$("#ajaxzte320").html(response);
+	}, "html");
+	setTimeout('ajaxzte320('+id+');',500000);	
+}
+function runprofile(idonu) {
+	$("#panel-ont").hide();
+	$("#loading").show();
+	var id = $('#olt').val();
+	var speedprofile = $('#speedprofile').val();
+	$.post(root+'ajax/function.php',{id:id,speedprofile:speedprofile,idonu:idonu,act:'speedprofile'});
+	setTimeout(sayHi,5000);
+}
+function getmacswitch(mac,idblock){
+	$('#getmac_' + idblock).html(LoadingBarminm);
+	$.post(root+'ajax/function.php',{mac:mac,act:'getmac'},
+	function(response) {
+		$('#getmac_' + idblock).html(response);
+	},'html');
+}
+function ponbox(idonu,dataid){
+	$('#ponbox_' + idonu).html(LoadingBarminm);
+	$.post(root+'ajax/ponbox.php',{idonu:idonu,dataid:dataid,act:'view'},
+	function(response) {
+		$('#ponbox_' + idonu).html(response);
+	},'html');
+}
+function ajaxgcomepon(id) {
+	$.post(root+"ajax/ontgcomepon.php",{id:id},function(response){ 
+	$("#ontpmon").html(response);
+	}, "html");
+	setTimeout('ajaxgcomepon('+id+');',500000);	
+}
+function ajaxbdcomepon(id) {
+	$.post(root+"ajax/ontbdcomepon.php",{id:id},function(response){ 
+	$("#ontpmon").html(response);
+	}, "html");
+	setTimeout('ajaxbdcomepon('+id+');',500000);	
+}
+function ajaxbdcomeponspeed(id) {
+	$.post(root+"ajax/bdcomeponspeed.php",{id:id},function(response){ 
+	$("#pir_speed").html(response);
+	}, "html");
+	setTimeout('ajaxbdcomeponspeed('+id+');',500000000);	
+}
+function ajaxfdbonuzte3epon(id) {
+	$.post(root+"ajax/fdbonuzte3epon.php",{id:id},function(response){ 
+	$("#ontpmon").html(response);
+	}, "html");
+	setTimeout('ajaxfdbonuzte3epon('+id+');',500000);	
+}
+function ajaxfdbonuzte3gpon(id) {
+	$.post(root+"ajax/fdbonuzte3gpon.php",{id:id},function(response){ 
+	$("#ontpmon").html(response);
+	}, "html");
+	setTimeout('ajaxfdbonuzte3gpon('+id+');',500000);	
+}
+function ajaxfdbonuzte6gpon(id) {
+	$.post(root+"ajax/fdbonuzte6gpon.php",{id:id},function(response){ 
+	$("#ontpmon").html(response);
+	}, "html");
+	setTimeout('ajaxfdbonuzte6gpon('+id+');',500000);	
+}
+function ajaxcdata11(id) {
+	$.post(root+"ajax/ontcdata11.php",{id:id},function(response){ 
+	$("#ontpmon").html(response);
+	}, "html");
+	setTimeout('ontpmon('+id+');',500000);	
+}
+function ajaxhuawei5608(id) {
+	$("#onthuawei5608").html(LoadingBar);
+	$.post(root+"ajax/onthuawei5608.php",{id:id},function(response){ 
+	$("#onthuawei5608").html(response);
+	}, "html");
+	setTimeout('onthuawei5608('+id+');',500000);	
+}
+function ajaxbdcomeponsignal(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/bdcomeponsignal.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxsignal('+id+');',500000);	
+}
+function ajaxcdata16signal(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/cdata16signal.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxcdata16signal('+id+');',500000);	
+}
+function ajaxcdata16signalv3(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/cdata16signalv3.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxcdata16signalv3('+id+');',500000);	
+}
+function ajaxcdata17(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/ontcdata17.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxcdata17('+id+');',500000);	
+}
+function ajaxgcomgpon(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/gcomgpon.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxgcomgpon('+id+');',500000);	
+}
+function ajaxnokia73(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/nokia73signal.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxnokia73('+id+');',500000);	
+}
+function ajaxvsolepon(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/vsoldepon.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxvsolepon('+id+');',500000);	
+}
+function ajaxvsolgpon(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/vsoldgpon.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxvsolgpon('+id+');',500000);	
+}
+function ajaxcdata12signal(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/cdata12signal.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxcdata12signal('+id+');',500000);	
+}
+function fdbdata12(id) {
+	$("#ontpmon").html(LoadingBar);
+	$.post(root+"ajax/ontcdata12.php",{id:id},function(response){ 
+	$("#ontpmon").html(response);
+	}, "html");
+	setTimeout('fdbdata12('+id+');',500000);	
+}
+function ajaxgcomeponsignal(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/gcomeponsignal.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxgcomeponsignal('+id+');',500000);	
+}
+function ajaxzteponsignal(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/ontzte220.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxzteponsignal('+id+');',500000);	
+}
+function ajaxcdata11signal(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/cdata11signal.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxcdata11signal('+id+');',500000);	
+}
+function ajaxbdcomgponsignal(id) {
+	$("#ajaxsignal").html(LoadingBar);
+	$.post(root+"ajax/bdcomgponsignal.php",{id:id},function(response){ 
+	$("#ajaxsignal").html(response);
+	}, "html");
+	setTimeout('ajaxsignal('+id+');',500000);	
+}
+function onu_equipment(id) {
+	$.post(root+"ajax/onu_equipment.php",{id:id},function(response){ 
+	$("#onu_equipment").html(response);
+	}, "html");
+}
+function connect_to_onu(id) {
+	$(".pole-add").html(LoadingBar);
+	$.post(root+"ajax/connect_to_onu.php",{act:'select_type',id:id},function(response){ 
+	$(".pole-add").html(response);
+	}, "html");
+}
+function ajaxcmdpanel(act,onu) {
+	$("#loading").show();
+	$.post(root+"ajax/cmd.php",{act:act,onu:onu},function(response){ 
+	$("#ajax").html(response);
+	$("#loading").hide();
+	}, "html");	
+}
+function ajaxswitch(olt,act) {
+	$.post(root+"ajax/switch.php",{act:act,olt:olt},function(response){ 
+	$("#ajax").html(response);
+	}, "html");	
+}
+function ajaxviewphoto(id) {
+	$.post(root+"ajax/photo.php",{act:'view',id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function fun_ajax(id,oidid,act) {
+	$.post(root+"ajax/function.php",{act:act,id:id,oidid:oidid},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function ajaxcmd(act,olt,onu) {
+	$.post(root+"ajax/cmd.php",{act:act,olt:olt,onu:onu},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function sender_worker_poller(tid, id, show_text, type = 'warning') {
+    showToast(show_text, type);
+	$.post(root + "?do=queue", {tid: tid, id: id});
+	setTimeout(sayHi, 5000);
+}
+function showToast(message, type = 'success', duration = 2000) {
+    const toast = document.getElementById('toast');
+    const icon = toast.querySelector('.toast-icon');
+    const content = toast.querySelector('.toast-content');
+    const icons = {
+        success: '✅',
+        warning: '⚠️',
+        error: '❌'
+    };
+    toast.classList.remove('success', 'warning', 'error');
+    toast.classList.add(type);
+    icon.textContent = icons[type] || '';
+    content.textContent = message;
+    toast.classList.remove('hidden');
+    toast.classList.add('show');
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.classList.add('hidden'), 350);
+    }, duration);
+}
+
+function bdcommaconu_ajax(id,idonu,act) {
+	$("#loading").show();
+	$.post(root+"ajax/function.php",{act:act,id:id,idonu:idonu},function(response){ 
+	$("#ont-"+ idonu).html(response);
+	}, "html");
+	$("#loading").hide();
+}
+function history_voltage(id,device,act) {
+	$("#viewping3").html(LoadingBarminm);
+	$.post(root + "?do=historyvolt",{act:act,id:id,device:device,act:act},function(response){ 
+	$("#viewping3").html(response);
+	}, "html");
+}
+function snmpsetsave(id,act){
+	var name = jQuery('#nameonu').val();
+	$("#form_rename").hide();
+	$.post(root+"ajax/function.php",{act:act,id:id,name:name},function(response){ 
+	$("#resname").html(response);
+		}, "html");
+}
+function showblockform1(){
+	$(".zte_edit_name").hide();
+	$("#form_rename").show();
+}
+function showblockform2(){
+	$(".zte_edit_vlan").hide();
+	$("#formeditvlan").show();
+}
+function showblockform3(){
+	$(".zte_edit_note").hide();
+	$("#form_renote").show();
+}
+function bdcomvlanonu_ajax(id,idonu,act,eth) {
+	$("#loading").show();
+	var vlan = $('#vlan-' + eth).val();
+	$.post(root+"ajax/function.php",{act:act,id:id,idonu:idonu,vlan:vlan,eth:eth},function(response){ 
+	$("#edit-vlan-"+ eth).html(response);
+		$("#btn-edit-vlan-"+ eth).hide();
+	}, "html");
+	$("#loading").hide();
+	
+}
+function bdcomvlanonu(idonu,act,eth) {
+	$("#load-edit-vlan-"+ eth).html(LoadingBarminm);
+	$("#btn-edit-vlan-"+ eth).hide();
+	var vlan = $('#vlan-'+eth).val();
+	var eth = $('#eth-'+eth).val();
+	var mode = $('#mode-'+eth).val();
+	$.post(root+"ajax/function.php",{act:act,idonu:idonu,vlan:vlan,eth:eth,mode:mode},function(response){ 
+	$("#edit-vlan-"+ idonu).html(response);		
+	}, "html");
+	setTimeout(sayHi,3000);
+}
+function zteonufunreload(id,idonu,act) {
+	$("#loading").show();
+	$.post(root+"ajax/function.php",{act:act,id:id,idonu:idonu});
+	setTimeout(sayHi,4000);
+}
+function zteonufunpage(id,idonu,act) {
+	$("#loading").show();
+	$("#block-ont-" + id).hide();
+	$.post(root+"ajax/function.php",{act:act,id:id,idonu:idonu},
+	function(response){ 
+		$("#block-ont-"+ idonu).html(response);
+	}, "html");
+	$("#loading").hide(); 
+}
+function sayHi() {
+	$(location).attr('href');
+	location.reload(); 
+}
+function portcontrol(types,act,idonu,port) {
+    $("#loading").show();
+    $.post(root + "ajax/function.php", {act:act,types:types,idonu:idonu,port:port},
+    function (response) {
+        if (response == 'ok') {
+			setTimeout(sayHi, 7000);
+		}
+		$("#loading").hide();
+    }, 'html');
+}
+function ajaxzteonuport(statusport,idonu,port) {
+	$("#loading").show();
+	$.post(root+"ajax/function.php",{act: statusport + 'zteport',idonu:idonu,port:port});
+	setTimeout(sayHi, 11000);
+}
+function ajaxzteonu(act,onu,port,dia,view) {
+	if (view === "href") {
+		$.post(root+"ajax/ajaxzte.php",{act:act,onu:onu,port:port,dia:dia});
+		$(location).attr('href');
+		location.reload(); 	
+	} else if (view === "popup"){
+		$.post(root+"ajax/ajaxzte.php",{act:act,onu:onu,port:port,dia:dia},function(response){ 
+			$("#ajax").html(response);
+		}, "html");
+	}else{
+		$.post(root+"ajax/ajaxzte.php",{act:act,onu:onu,port:port,dia:dia},function(response){ 
+			$("#js-"+ view).html(response);
+		}, "html");
+	}
+}
+function ztetvport(act,id) {
+	$.post(root+"ajax/function.php",{act:act,id:id});
+	$(location).attr('href');
+	location.reload(); 
+}
+function ajaxhideonu() {
+	$.post(root+"ajax/function.php",{act:'hideonu'});
+	$(location).attr('href');
+	location.reload(); 
+}
+function fibermap(onuid,act) {
+	$.post(root+"ajax/fiber.php",{get:act,onuid:onuid},function(response){ 
+	$("#btn-connect-fibermap").html(response);
+	}, "html");
+}
+function ajaxponboxonu(act,ponboxid,onuid) {
+	$.post(root+"ajax/unit.php",{act:act,ponboxid:ponboxid,onuid:onuid},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function ajaxponcore(act,id) {
+	$.post(root+"ajax/unit.php",{act:act,id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function ajaxpongeo(id,lan,lon) {
+	$.post(root+"ajax/unit.php",{act:'getponbox',lan:lan,lon:lon,id:id},function(response){ 
+	$("#result_box").html(response);
+	}, "html");
+}
+function ajaxaddphoto(id) {
+	$.post(root+"ajax/photo.php",{act:'add',id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function ajaxaddphotoponbox(id) {
+	$.post(root+"ajax/photo.php",{act:'olt',id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function ajaxaddusrponbox(id) {
+	$.post(root+ "?do=core",{act:'addusr',id:id},function(response){ 
+	$("#load_data").html(response);
+	}, "html");
+}
+function view_photo(id) {
+	$.post(root+"?do=fiber&act=viewphoto",{photo_id:id},function(response){ 
+	$("#photo-info").html(response);
+	}, "html");
+}
+function edit_photo(id) {
+	$.post(root+"?do=fiber&act=editphoto",{photo_id:id},function(response){ 
+	$("#ponmap_note_edit").html(response);
+	}, "html");
+}
+function ajaxsavegeoloc(id,lan,lon) {
+	$.post(root+"?do=send",{act:'savegeolocation',id:id,lan:lan,lon:lon},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function ajaxontponbox(id) {
+	$.post(root+"ajax/ponbox.php",{id:id},function(response){ 
+	$("#ont-ponbox").html(response);
+	}, "html");
+	setTimeout('ajaxontponbox('+id+');',50000);	
+}
+function ajaxbillingdata(id) {
+	$.post(root+"ajax/billing.php",{id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function ajaxoid(act,id) {
+	$.post(root+"ajax/oid.php",{act:act,id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function ajaxRxGraphdata(id) {
+	$.post(root+"ajax/graph.php",{act:'rx',id:id},function(response){ 
+	$(".onu-inf-graph").html(response);
+	}, "html");
+}
+function ajaxhistoryRXdata(id) {
+	$.post(root+"ajax/history.php",{id:id},function(response){ 
+	$("#ajax").html(response);
+	}, "html");
+}
+function show_hide(id){
+    var klappText = document.getElementById('s' + id);
+    var klappBild = document.getElementById('pic' + id);
+    if (klappText.style.display == 'none') {
+        klappText.style.display = 'block';
+        klappBild.src = '/style/img/minus.gif';
+        klappBild.title = 'Скрыть';
+    } else {
+        klappText.style.display = 'none';
+        klappBild.src = '/style/img/plus.gif';
+        klappBild.title = 'Показать';
+    }
+}
+// Закрити вікно
+function oknoclose(){
+	$(".overlay").hide();
+	$("#okno").hide();
+}
+// вікно - вибрати свіч
+function okno(id){
+	$.post(root+'ajax/device.php',{id:id}, 
+		function(response) { 
+			$('#ajax').html(response);
+		}, 'html'
+    );
+}
+// connect
+function ajaxconnect(act,id){
+	$.post(root+'ajax/connect.php',{act:act,id:id}, 
+		function(response) { 
+			$('#ajax').html(response);
+		}, 'html'
+    );
+}
+// port
+function port(act,id,style){
+	$.post(root+'ajax/port.php',{act:act,id:id}, 
+		function(response) { 
+			$('#ajax').html(response);
+		}, 'html'
+    );
+}
+// port
+function savedescr(act,id,style){
+	$.post(root+'ajax/port.php',{act:act,id:id}, 
+		function(response) { 
+			$('#descr_port_').html(response);
+		}, 'html'
+    );
+}
+// checker
+function ajaxcore(act,id){
+	$.post(root+'ajax/core.php',{act:act,id:id}, 
+		function(response) { 
+			$('#ajax').html(response);
+		}, 'html'
+    );
+}
+function addopisonu(act,oidid,olt,onu){
+	$.post(root+'ajax/core.php',{act:act,oidid:oidid,olt:olt,onu:onu}, 
+		function(response) { 
+			$('#ajax').html(response);
+		}, 'html'
+    );
+}
+function ajaxipman(id,ip,act){
+	$.post(root+'ajax/ipman.php',{act:act,id:id,ip:ip}, 
+		function(response) { 
+			$('#ajax').html(response);
+		}, 'html'
+    );
+}
+// checker
+// unit
+function viewunit(act,id){
+	$.post(root+'ajax/unit.php',{act:act,id:id}, 
+		function(response) { 
+			$('#ajax').html(response);
+		}, 'html'
+    );
+}
+function getChartData(host, id) {
+    $.post(root+'ajax/gettraffic.php', {hostname: host, interface: id}, function( d ) {
+        var data = d.data;
+        if (data.inDiff > 0 && data.outDiff > 0) {
+            if (invertInOut) {
+                addChartPoint(new Date(data.time * 1000), data.timeDiff, data.outDiff, data.inDiff);
+            } else {
+                addChartPoint(new Date(data.time * 1000), data.timeDiff, data.inDiff, data.outDiff);
+            }
+        }
+    });
+}
+function editfibermap(act,id,css){
+	$.post(root+'ajax/unit.php',{act:act,id:id}, 
+		function(response) { 
+			$('#' + css).html(response);
+		}, 'html'
+    );
+}
+function dragElement(elmnt) {
+  var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+  if (document.getElementById(elmnt.id + "header")) {
+    // if present, the header is where you move the DIV from:
+    document.getElementById(elmnt.id + "header").onmousedown = dragMouseDown;
+  } else {
+    // otherwise, move the DIV from anywhere inside the DIV:
+    elmnt.onmousedown = dragMouseDown;
+  }
+function dragMouseDown(e) {
+    e = e || window.event;
+    e.preventDefault();
+    // get the mouse cursor position at startup:
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+    document.onmouseup = closeDragElement;
+    // call a function whenever the cursor moves:
+    document.onmousemove = elementDrag;
+}
+function elementDrag(e) {
+    e = e || window.event;
+    e.preventDefault();
+    // calculate the new cursor position:
+    pos1 = pos3 - e.clientX;
+    pos2 = pos4 - e.clientY;
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+    // set the element's new position:
+    elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+    elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+}
+function closeDragElement() {
+    document.onmouseup = null;
+    document.onmousemove = null;
+  }
+}
+$(document).ready(function () {
+    function checkSwitchStatus(id) {
+        $.post(root + '?do=regonu&act=get', { id: id }, function (data) {
+            $('#status_' + id).html(data);
+        });
+    }
+    function initialCheck() {
+        $('.reger-switch').each(function () {
+            var id = $(this).data("id");
+            checkSwitchStatus(id);
+        });
+    }
+    initialCheck();
+    setInterval(initialCheck, 300000);
+});
+function getRatioTree() {
+    $(document).ready(function() {
+        var rationElements = $('[id^="ration-"]');
+        rationElements.each(function() {
+            var id = this.id.replace('ration-', '');
+			$("#ration-"+ id).html(LoadingBarminm);
+            $.post(root + 'ajax/fiber.php', { get: 'ration', id: id }, function(response) {
+                $('#ration-' + id).html(response);
+            });
+        });
+    });
+}
+function toggleMenu(menuId) {
+	var menuContent = document.getElementById(menuId + '_content');
+	var menuKey = document.getElementById(menuId + '_key');
+	var allMenus = document.querySelectorAll('.menu_content');
+	if (menuContent) {
+    menuContent.classList.toggle('activemap');
+    menuKey.classList.toggle('activekey');
+    allMenus.forEach(function(menu) {
+		if (menu.id !== menuId + '_content' && menu.classList.contains('activemap')) {
+			menu.classList.remove('activemap');
+		}
+    });
+  }
+}
+
+function checker_onu_vendor(olt) {
+    var confirmed = confirm("Start Worker?");    
+    if (confirmed) {
+	$("#loading").show();
+    $.post(root + 'poller.php', {jobid:29,olt: olt}, function(response) {
+        if (response === 'ok') {
+            setTimeout(sayHi, 2000);
+        }
+    });
+	}	
+}
+function sendpoller() {
+    var confirmed = confirm("Start Dumping Data in SQL Format with mysqldump?");    
+    if (confirmed) {
+	$("#loading").show();
+    $.post(root + 'poller.php', {jobid:17}, function(response) {
+        if (response === 'ok') {
+            setTimeout(sayHi, 2000);
+        }else{
+			setTimeout(sayHi, 1000);
+		}
+    });}
+}
+function checker_onu_fdb(olt) {
+    var confirmed = confirm("Start Worker?");    
+    if (confirmed) {
+	$("#loading").show();
+    $.post(root + 'poller.php', {jobid:98,olt: olt}, function(response) {
+        if (response === 'ok') {
+            setTimeout(sayHi, 2000);
+        }
+    });}
+}
+function checker_port_status(olt,result) {
+    var confirmed = confirm("Start Worker?");    
+    if (confirmed) {
+	$("#loading").show();
+    $.post(root + 'poller.php', {jobid:104,olt: olt,result: result}, function(response) {
+        if (response === 'ok') {
+            setTimeout(sayHi, 2000);
+        }
+    });}
+}
+function checker_data(olt, jobid, title) {
+    var confirmed = confirm(title);    
+    if (confirmed) {
+	$("#loading").show();
+    $.post(root + 'poller.php', {jobid:jobid,olt:olt,result:1}, function(response) {
+        if (response === 'ok') {
+            setTimeout(sayHi, 2000);
+        }
+    });}
+}
+function command_data(olt, command, title) {
+    var confirmed = confirm(title);    
+    if (confirmed) {
+	$("#loading").show();
+    $.post(root + '?do=telnet', {act:command,olt:olt,result:1}, function(response) {
+        if (response === 'ok') {
+            setTimeout(sayHi, 2000);
+        }
+    });}
+}
+function sysComm(olt, command, title, jobid) {
+    var confirmed = confirm(title);    
+    if (confirmed) {
+	$("#loading").show();
+    $.post(root + '?do=telnet', {act:command,olt:olt,jobid:jobid,result:1}, function(response) {
+        if (response === 'ok') {
+            setTimeout(sayHi, 2000);
+        }
+    });}
+}
+document.addEventListener('DOMContentLoaded', function () {
+    var lineElements = document.querySelectorAll('[id^="line-"]');
+    lineElements.forEach(function (element) {
+        element.addEventListener('mouseover', function () {
+            highlightLineElements(element);
+        });
+        element.addEventListener('mouseout', function () {
+            removeHighlightLineElements();
+        });
+    });
+    function highlightLineElements(selectedElement) {
+        var lineNumber = selectedElement.id.replace('line-', '');
+        lineElements.forEach(function (element) {
+            var elementNumber = element.id.replace('line-', '');
+            if (elementNumber === lineNumber) {
+                element.classList.add('highlight');
+            }
+        });
+    }
+    function removeHighlightLineElements() {
+        lineElements.forEach(function (element) {
+            element.classList.remove('highlight');
+        });
+    }
+});
+document.addEventListener('DOMContentLoaded', function () {
+    var lineElements = document.querySelectorAll('[id^="prov-"]');
+    lineElements.forEach(function (element) {
+        element.addEventListener('mouseover', function () {
+            highlightLineElements(element);
+        });
+
+        element.addEventListener('mouseout', function () {
+            removeHighlightLineElements();
+        });
+    });
+    function highlightLineElements(selectedElement) {
+        var lineNumber = selectedElement.id.replace('prov-', '');
+        lineElements.forEach(function (element) {
+            var elementNumber = element.id.replace('prov-', '');
+            if (elementNumber === lineNumber) {
+                element.classList.add('highlight_p');
+            }
+        });
+    }
+
+    function removeHighlightLineElements() {
+        lineElements.forEach(function (element) {
+            element.classList.remove('highlight_p');
+        });
+    }
+});
+$(document).ready(function(){
+    $('input[name="odometr"]').on('input', function() {
+        var start_odometr = parseInt($('input[name="start_odometr"]').val());
+        var finish_odometr = parseInt($(this).val());        
+        if (!isNaN(start_odometr) && !isNaN(finish_odometr)) {
+            var difference = finish_odometr - start_odometr;
+            $('#sum').text('Намотав: ' + difference + ' km');
+        }
+    });
+});
+function getvlanolt() {
+    $(document).ready(function() {
+        var rationElements = $('[id^="olt-"]');
+        rationElements.each(function() {
+            var id = this.id.replace('olt-', '');
+			$("#olt-"+ id).html(LoadingBarminm);
+            $.post(root + '?do=service', { act: 'viewvlan', id: id }, function(response) {
+                $('#olt-' + id).html(response);
+            });
+        });
+    });
+}
+function loadvlan(id) {
+    var confirmed = confirm("Load vlan?");    
+    if (confirmed) {
+		$("#loading").show();
+		$.post(root + '?do=service', {act:'getvlan',id: id}, function(response) {
+
+		});
+	}	
+}
+function insertTag(tag) {
+    var textarea = document.getElementById('content');
+    var start = textarea.selectionStart;
+    var end = textarea.selectionEnd;
+    var selectedText = textarea.value.substring(start, end);
+    var beforeText = textarea.value.substring(0, start);
+    var afterText = textarea.value.substring(end, textarea.value.length);
+    var newText = beforeText + '[' + tag + ']' + selectedText + '[/' + tag + ']' + afterText;
+    textarea.value = newText;
+}
+function updateMarkersVisibility() {
+    var currentZoom = map.getZoom();
+    markers.forEach(function(marker) {
+        var imgElement = marker._icon.querySelector('.circle-zoom');
+        var statsElements = marker._icon.querySelectorAll('.mapstats, .mapoffs, .mapoff, .maponline');
+        if (imgElement) {
+            if (currentZoom >= minZoomLevel) {
+                imgElement.style.display = 'block';
+                statsElements.forEach(function(el) {
+                    el.classList.remove('collapsed');
+                    el.classList.add('expanded');
+                });
+            } else {
+                imgElement.style.display = 'none';
+                statsElements.forEach(function(el) {
+                    el.classList.remove('expanded');
+                    el.classList.add('collapsed');
+                });
+            }
+        }
+    });
+}
+function confirmpmon(title) {
+    return confirm(title);
+}
+function drawGrid(svg, xScale, yScale) {
+    const gridGroup = svg.append("g").attr("class", "grid");
+    gridGroup.selectAll(".grid-line-x").data(xScale.ticks(10)).enter().append("line").attr("class", "grid-line-x").attr("x1", d => xScale(d)).attr("x2", d => xScale(d)).attr("y1", margin.top).attr("y2", height - margin.bottom).attr("stroke", "#ccc").attr("stroke-dasharray", "2,2");
+    gridGroup.selectAll(".grid-line-y").data(yScale.ticks(6)).enter().append("line").attr("class", "grid-line-y").attr("x1", margin.left).attr("x2", setWidth() - margin.right).attr("y1", d => yScale(d)).attr("y2", d => yScale(d)).attr("stroke", "#ccc").attr("stroke-dasharray", "2,2");
+}
+function drawCPUChart(data) {
+    yScaleCPU.domain([0, 100]);
+    xScale.domain(d3.extent(data, d => new Date(d.timestamp)));
+    svgCPU.selectAll("*").remove();
+    drawGrid(svgCPU, xScale, yScaleCPU);
+    svgCPU.append("g").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(xScale).ticks(10).tickFormat(d3.timeFormat("%H:%M:%S")));
+    svgCPU.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(yScaleCPU).ticks(6));
+    svgCPU.append("path").datum(data).attr("fill", "#BFCE6C").attr("opacity", 0.5).attr("d", areaCPU);
+    svgCPU.append("path").datum(data).attr("fill", "none").attr("stroke", "#9cc884").attr("stroke-width", 0.8).attr("d", lineCPU);
+}
+function renderChart_(data) {
+    const margin = {top: 10, right: 10, bottom: 20, left: 30};
+    const width = document.getElementById("chart").clientWidth - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+    const svg = d3.select("#chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+    
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
+    const onuKeys = Object.keys(data);
+    const allSignals = [];
+    onuKeys.forEach(onu => {
+        data[onu].forEach(d => {
+            allSignals.push(new Date(d.datetime));
+        });
+    });
+
+    const x = d3.scaleTime().domain(d3.extent(allSignals)).range([0, width]);
+    const y = d3.scaleLinear()
+        .domain([d3.min(onuKeys, onu => d3.min(data[onu], d => d.signal)), 
+                 d3.max(onuKeys, onu => d3.max(data[onu], d => d.signal))])
+        .nice()
+        .range([height, 0]);
+
+    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+    svg.append("g").call(d3.axisLeft(y));
+
+    const line = d3.line().x(d => x(new Date(d.datetime))).y(d => y(d.signal));
+
+    const onuLines = {}; // Для збереження ліній для кожної онушки
+
+    onuKeys.forEach((onu, index) => {
+        const group = svg.append("g");
+        const path = group.append("path")
+            .datum(data[onu])
+            .attr("fill", "none")
+            .attr("stroke", color(index))
+            .attr("stroke-width", 1.5)
+            .attr("class", "onu-line")
+            .attr("d", line)
+            .on("mouseover", function () {
+                d3.select(this)
+                    .attr("stroke-width", 3);
+            })
+            .on("mouseout", function () {
+                d3.select(this).attr("stroke-width", 1.5);
+            })
+            .on("click", function () {
+                const path = d3.select(this);
+                const currentOpacity = path.style("opacity");
+                path.style("opacity", currentOpacity === "1" ? "0" : "1");
+            })
+            .on("contextmenu", function (event, d) {
+                event.preventDefault();
+                const path = d3.select(this);
+                const idonu = data[onu][0]?.idonu;
+
+                if (idonu) {
+                    const elementToHide = document.getElementById(`onu-${idonu}`);
+                    if (elementToHide) {
+                        elementToHide.style.display = "none";
+                    }
+                }
+
+                path.remove();
+            })
+            .append("title")
+            .text(() => {
+                const inface = data[onu][0]?.inface || "Невідомий інтерфейс";
+                const mac = data[onu][0]?.mac || "Невідомий MAC";
+                return `${mac}\nInterface: ${inface}`;
+            });
+
+        // Зберігаємо лінію в об'єкті для подальшого доступу
+        onuLines[onu] = path;
+    });
+
+    document.querySelectorAll('tr[data-onu-id]').forEach(row => {
+        row.addEventListener('click', function () {
+            const onuId = this.getAttribute('data-onu-id');
+            const line = onuLines[onuId];
+
+            if (line) {
+                // Додаємо ефект блимання
+                line.transition()
+                    .duration(500)
+                    .style("opacity", 0)
+                    .transition()
+                    .duration(500)
+                    .style("opacity", 1);
+            }
+        });
+    });
+}
+
+function renderChart(data) {
+    const margin = {top: 10, right: 10, bottom: 20, left: 30};
+    const width = document.getElementById("chart").clientWidth - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+    const svg = d3.select("#chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+    
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
+    const onuKeys = Object.keys(data);
+    const allSignals = [];
+    onuKeys.forEach(onu => {
+        data[onu].forEach(d => {
+            allSignals.push(new Date(d.datetime));
+        });
+    });
+
+    const x = d3.scaleTime().domain(d3.extent(allSignals)).range([0, width]);
+    const y = d3.scaleLinear()
+        .domain([d3.min(onuKeys, onu => d3.min(data[onu], d => d.signal)), 
+                 d3.max(onuKeys, onu => d3.max(data[onu], d => d.signal))])
+        .nice()
+        .range([height, 0]);
+
+    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+    svg.append("g").call(d3.axisLeft(y));
+
+    const line = d3.line().x(d => x(new Date(d.datetime))).y(d => y(d.signal));
+
+    onuKeys.forEach((onu, index) => {
+        const group = svg.append("g");
+        group.append("path")
+            .datum(data[onu])
+            .attr("fill", "none")
+            .attr("stroke", color(index))
+            .attr("stroke-width", 1.5)
+            .attr("class", "onu-line")
+            .attr("d", line)
+            .on("mouseover", function () {
+                d3.select(this)
+                    .attr("stroke-width", 3);
+            })
+            .on("mouseout", function () {
+                d3.select(this).attr("stroke-width", 1.5);
+            })
+            .on("click", function () {
+                const path = d3.select(this);
+                const currentOpacity = path.style("opacity");
+                path.style("opacity", currentOpacity === "1" ? "0" : "1");
+            })
+            .on("contextmenu", function (event, d) {
+                event.preventDefault();
+                const path = d3.select(this);
+                const idonu = data[onu][0]?.idonu;
+
+                if (idonu) {
+                    const elementToHide = document.getElementById(`onu-${idonu}`);
+                    if (elementToHide) {
+                        elementToHide.style.display = "none";
+                    }
+                }
+
+                path.remove();
+            })
+            .append("title")
+            .text(() => {
+                const inface = data[onu][0]?.inface || "Невідомий інтерфейс";
+                const mac = data[onu][0]?.mac || "Невідомий MAC";
+                return `${mac}\nInterface: ${inface}`;
+            });
+    });
+}
+function renderChartPon(data) {
+    const margin = { top: 10, right: 10, bottom: 20, left: 30 };
+    const width = document.getElementById("chart").clientWidth - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+    const svg = d3.select("#chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
+    const onuKeys = Object.keys(data);
+    const allSignals = [];
+    onuKeys.forEach(onu => {
+        data[onu].forEach(d => {
+            allSignals.push(new Date(d.datetime));
+        });
+    });
+    const x = d3.scaleTime().domain(d3.extent(allSignals)).range([0, width]);
+    const y = d3.scaleLinear()
+        .domain([d3.min(onuKeys, onu => d3.min(data[onu], d => d.signal)), 
+                 d3.max(onuKeys, onu => d3.max(data[onu], d => d.signal))])
+        .nice()
+        .range([height, 0]);
+    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+    svg.append("g").call(d3.axisLeft(y));
+    const line = d3.line().x(d => x(new Date(d.datetime))).y(d => y(d.signal));
+	const onuLines = {}; // Для збереження ліній для кожної онушки
+    onuKeys.forEach((onu, index) => {
+        const group = svg.append("g");
+        const idonu = data[onu][0]?.idonu || "no-id-" + index; // Якщо idonu немає, генеруємо унікальний id
+        group.append("path")
+            .datum(data[onu])
+            .attr("fill", "none")
+            .attr("stroke", color(index))
+            .attr("stroke-width", 1.5)
+            .attr("class", "onu-line")
+            .attr("id", "onu-line-" + idonu)  // Унікальний id для кожної лінії
+            .attr("d", line)
+            .on("mouseover", function () {
+                d3.select(this).attr("stroke-width", 3);
+            })
+            .on("mouseout", function () {
+                d3.select(this).attr("stroke-width", 1.5);
+            })
+            .on("click", function () {
+                const path = d3.select(this);
+                const lineId = "onu-line-" + idonu;
+                const existingBlink = d3.select(`#${lineId}`).style("animation");
+                if (existingBlink && existingBlink !== "none") {
+                    d3.select(`#${lineId}`).style("animation", "none");
+                } else {
+                    d3.select(`#${lineId}`).style("animation", "blink 1s infinite");
+                }
+            })
+            .on("contextmenu", function (event, d) {
+                event.preventDefault();
+                const path = d3.select(this);
+                const idonu = data[onu][0]?.idonu;
+
+                if (idonu) {
+                    const elementToHide = document.getElementById(`onu-${idonu}`);
+                    if (elementToHide) {
+                        elementToHide.style.display = "none";
+                    }
+                }
+
+                path.remove();
+            })
+            .append("title")
+            .text(() => {
+                const inface = data[onu][0]?.inface || "n/a inface";
+                const mac = data[onu][0]?.mac || "n/a MAC";
+                return `${mac}\nInterface: ${inface}`;
+            });
+    });
+document.querySelectorAll('tr[data-onu-id]').forEach(row => {
+    // Обробка лівого кліку
+    row.addEventListener('click', function () {
+        const onuId = this.getAttribute('data-onu-id');
+        const line = document.getElementById(`onu-line-${onuId}`);
+        if (this.classList.contains('active')) {
+            this.classList.remove('active');
+            if (line) {
+                line.classList.remove('blinkers_1s');
+            }
+        } else {
+            this.classList.add('active');
+            if (line) {
+                line.classList.add('blinkers_1s');
+            }
+        }
+    });
+
+    // Обробка правого кліку
+    row.addEventListener('contextmenu', function (e) {
+        e.preventDefault(); // Запобігає відкриттю стандартного контекстного меню
+        const onuId = this.getAttribute('data-onu-id');
+        const line = document.getElementById(`onu-line-${onuId}`);
+
+        if (this.classList.contains('opiym')) {
+            // Видаляємо класи, якщо вже були встановлені
+            this.classList.remove('opiym');
+            if (line) {
+                line.classList.remove('hides');
+            }
+        } else {
+            // Додаємо класи, якщо їх немає
+            this.classList.add('opiym');
+            if (line) {
+                line.classList.add('hides');
+            }
+        }
+    });
+});
+
+}
+function stats_new_added(name_block) {
+    const container = document.getElementById("stats_new_added-container");
+    const width = container.clientWidth;
+    const height = 250;
+    const margin = { top: 40, right: 20, bottom: 40, left: 28 };
+
+    d3.select("#stats_new_added-container svg").remove();
+
+    fetch("/?do=core&act=stats_added")
+        .then(response => response.json())
+        .then(data => {
+            const chartData = Object.entries(data)
+                .map(([day, count]) => ({ day: parseInt(day), count: count }))
+                .sort((a, b) => a.day - b.day);
+
+            const total = chartData.reduce((acc, d) => acc + d.count, 0);
+            const average = total / chartData.length;
+            const threshold = average + (average / 2);
+
+            const svg = d3.select("#stats_new_added-container")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "14px")
+                .style("font-weight", "bold")
+                .text(name_block);
+
+            const x = d3.scaleBand()
+                .domain(chartData.map(d => d.day.toString()))
+                .range([margin.left, width - margin.right])
+                .padding(0.1);
+
+            const maxCount = d3.max(chartData, d => d.count) || 1;
+            const y = d3.scaleLinear()
+                .domain([0, maxCount])
+                .nice()
+                .range([height - margin.bottom, margin.top]);
+
+            svg.append("g")
+                .selectAll("rect")
+                .data(chartData)
+                .enter().append("rect")
+                .attr("x", d => x(d.day.toString()))
+                .attr("y", d => y(d.count))
+                .attr("height", d => Math.max(2, y(0) - y(d.count)))
+                .attr("width", x.bandwidth())
+                .attr("fill", d => d.count > threshold ? "#46ba39" : "#86b1d6")
+                .style("cursor", "pointer")
+                .on("mouseover", function (event, d) {
+                    d3.select(this).attr("fill", "orange");
+                })
+                .on("mouseout", function (event, d) {
+                    d3.select(this).attr("fill", d.count > threshold ? "#46ba39" : "#86b1d6");
+                })
+                .on("click", (event, d) => showdaynew(d.day)); // Виправлено
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+                .call(d3.axisBottom(x).tickSizeOuter(0))
+                .selectAll("text")
+                .attr("dy", "8px")
+                .attr("dx", "0px")
+                .style("text-anchor", "middle")
+                .attr("transform", "rotate(0)");
+
+            svg.append("g")
+                .attr("transform", `translate(${margin.left},0)`)
+                .call(d3.axisLeft(y));
+        });
+}
+
+function stats_disconnect(name_block) {
+    const container = document.getElementById("stats_disconnect-container");
+    const width = container.clientWidth;
+    const height = 250;
+    const margin = { top: 40, right: 20, bottom: 40, left: 28 };
+    d3.select("#stats_disconnect-container svg").remove();
+    fetch("/?do=core&act=stats_disconnect")
+	.then(response => response.json())
+	.then(data => {
+		const chartData = Object.entries(data).map(([day, count]) => ({day: parseInt(day),count: count})).sort((a, b) => a.day - b.day);
+		const total = chartData.reduce((acc, d) => acc + d.count, 0);
+		const average = total / chartData.length;
+		const threshold = average + (average / 2);
+		const svg = d3.select("#stats_disconnect-container").append("svg").attr("width", width).attr("height", height);svg.append("text").attr("x", width / 2).attr("y", margin.top / 2).attr("text-anchor", "middle").style("font-size", "14px").style("font-weight", "bold").text(name_block);
+		const x = d3.scaleBand().domain(chartData.map(d => d.day.toString())).range([margin.left, width - margin.right]).padding(0.1);
+		const maxCount = d3.max(chartData, d => d.count) || 1;
+		const y = d3.scaleLinear().domain([0, maxCount]).nice().range([height - margin.bottom, margin.top]);
+			svg.append("g")
+                .selectAll("rect")
+                .data(chartData)
+                .enter().append("rect")
+                .attr("x", d => x(d.day.toString()))
+                .attr("y", d => y(d.count))
+                .attr("height", d => Math.max(2, y(0) - y(d.count)))
+                .attr("width", x.bandwidth())
+                .attr("fill", d => d.count > threshold ? "red" : "#86b1d6")
+                .style("cursor", "pointer")
+                .on("mouseover", function (event, d) {
+                    d3.select(this).attr("fill", "orange");
+                })
+                .on("mouseout", function (event, d) {
+                    d3.select(this).attr("fill", d.count > threshold ? "red" : "#86b1d6");
+                })
+                .on("click", (event, d) => showdayoff(d.day)); // Виправлено
+		
+		svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x).tickSizeOuter(0)).selectAll("text").attr("dy", "8px").attr("dx", "0px").style("text-anchor", "middle").attr("transform", "rotate(0)");
+		svg.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y));
+	});
+}
+function showdaynew(day) {
+    const popup = document.getElementById("popup");
+    const popupContent = document.getElementById("popup-content");
+    popup.style.display = "flex";
+    popup.style.opacity = "0";
+    setTimeout(() => {
+        popup.style.opacity = "1";
+    }, 10);
+	popupContent.innerHTML = '<img src="../style/img/ajax-loader-big.gif" style="display: block; margin: auto;">';
+    fetch(`/?do=core&act=showdaynew&day=${day}`)
+        .then(response => response.text())
+        .then(html => {
+            popupContent.innerHTML = html;
+        })
+        .catch(() => {
+            popupContent.innerHTML = "<p style='text-align: center; color: red;'>Помилка завантаження</p>";
+        });
+}
+function showdayoff(day) {
+    const popup = document.getElementById("popup");
+    const popupContent = document.getElementById("popup-content");
+    popup.style.display = "flex";
+    popup.style.opacity = "0";
+    setTimeout(() => {
+        popup.style.opacity = "1";
+    }, 10);
+	popupContent.innerHTML = '<img src="../style/img/ajax-loader-big.gif" style="display: block; margin: auto;">';
+    fetch(`/?do=core&act=showdayoff&day=${day}`)
+        .then(response => response.text())
+        .then(html => {
+            popupContent.innerHTML = html;
+        })
+        .catch(() => {
+            popupContent.innerHTML = "<p style='text-align: center; color: red;'>Помилка завантаження</p>";
+        });
+}
+function closePopup() {
+    const popup = document.getElementById("popup");
+    popup.style.opacity = "0";
+    setTimeout(() => {
+        popup.style.display = "none";
+    }, 300);
+}
+function delete_taskers(title) {
+    let checkboxes = $('input[name="delete_taskers[]"]:checked');
+    if (checkboxes.length === 0) return;
+    if (!confirm(title)) return;
+    let scrollPosition = $(window).scrollTop();
+    let t_list = [];
+    checkboxes.each(function() {
+        t_list.push($(this).val());
+    });
+    $.post(root + '?do=telnet&act=deletetaskers', { data: t_list}, function(response) {
+        t_list.forEach(function(id) {
+            $('#tasker-' + id).hide();
+        });
+    });
+
+}
+function delete_marker_ont(olt, title) {
+    let checkboxes = $('input[name="delete[]"]:checked');
+    if (checkboxes.length === 0) return;
+    if (!confirm(title)) return;
+    let scrollPosition = $(window).scrollTop();
+    let ont_list = [];
+    checkboxes.each(function() {
+        ont_list.push($(this).val());
+    });
+    $.post(root + '?do=telnet&act=deleteont', { data: ont_list, olt: olt }, function(response) {
+        ont_list.forEach(function(id) {
+            $('#ont_' + id).hide();
+        });
+        $(window).scrollTop(scrollPosition);
+    });
+}
+function selectall() {
+    let checkboxes = document.querySelectorAll('input[name="delete[]"]');
+    if (checkboxes.length === 0) return;
+    let allSelected = checkboxes.length === Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+    checkboxes.forEach(function(checkbox) {
+        checkbox.checked = !allSelected;
+    });
+}
+function get_status_sfp(olt) {
+    var statusDiv = $('#status_' + olt);        
+    statusDiv.html(LoadingBarmin);
+    $.post(root + '?do=service&act=getsfp', { olt: olt }, function(data) {
+        statusDiv.html(data);
+    });
+}
+
+
+
+
+
+
+
+
+
+
+

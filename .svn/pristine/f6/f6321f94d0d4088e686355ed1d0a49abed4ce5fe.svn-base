@@ -1,0 +1,51 @@
+CREATE TABLE `taskers` (
+`id` INT AUTO_INCREMENT PRIMARY KEY,
+`deviceid` INT NOT NULL, 
+`workid` INT NOT NULL, 
+`type` VARCHAR(50) NOT NULL,
+`interval` INT NOT NULL, 
+`last_run_time` DATETIME NULL,
+`userid` INT NOT NULL, 
+`log` VARCHAR(50) NOT NULL,
+`added` datetime DEFAULT NULL,
+`status` ENUM('pending', 'running', 'completed') DEFAULT 'pending'
+);
+ALTER TABLE `taskers`
+CHANGE `deviceid` `deviceid` int(11) NULL AFTER `id`,
+CHANGE `userid` `userid` int(11) NULL AFTER `last_run_time`,
+CHANGE `log` `log` varchar(50) COLLATE 'utf8_unicode_ci' NULL AFTER `userid`;
+
+ALTER TABLE `taskers` ADD `pmon` varchar(50) COLLATE 'utf8_unicode_ci' NULL AFTER `type`;
+
+CREATE INDEX idx_pmon ON taskers (pmon);
+
+DROP TABLE `swcron`;
+DROP TABLE `sender`;
+DROP TABLE `server_api`;
+
+
+ALTER TABLE `taskers` ADD COLUMN `type_scheduler` ENUM('custom', 'manual', 'daily') NOT NULL DEFAULT 'manual' AFTER `type`, ADD COLUMN `daily_time` TIME NULL DEFAULT NULL AFTER `type_scheduler`, ADD COLUMN `custom_interval` INT NULL DEFAULT NULL AFTER `daily_time`;
+
+ALTER TABLE `taskers` ADD COLUMN `custom_time` VARCHAR(50) NOT NULL;
+
+ALTER TABLE `taskers` CHANGE `type_scheduler` `type_scheduler` enum('custom','manual','daily','hourly') COLLATE 'utf8_unicode_ci' NOT NULL DEFAULT 'manual' AFTER `type`;
+
+ALTER TABLE `taskers` ADD COLUMN `daily_time` TIME NULL DEFAULT NULL AFTER `type_scheduler`; 
+
+ALTER TABLE `taskers`
+CHANGE `custom_time` `custom_time` varchar(50) COLLATE 'utf8_unicode_ci' NULL AFTER `status`;
+DROP TABLE tasks_log;
+CREATE TABLE IF NOT EXISTS tasks_log (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  task_id INT NOT NULL,
+  type VARCHAR(100),
+  device_id INT NULL,
+  command TEXT,
+  pid INT NULL,
+  status ENUM('queued','running','done','error','timeout') NOT NULL DEFAULT 'queued',
+  started_at DATETIME NULL,
+  ended_at DATETIME NULL,
+  exit_code INT NULL,
+  output MEDIUMTEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

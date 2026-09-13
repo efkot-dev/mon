@@ -1,0 +1,60 @@
+<?php
+if (!defined('PONMONITOR')){
+	die('Hacking attempt!');
+}
+$timer = date('Y-m-d H:i:s');
+require ROOT_DIR.'/inc/init.monitor.php';
+if (isset($confPMon['FIBERMAP']) && !empty($confPMon['FIBERMAP']) && $confPMon['FIBERMAP'] == 1) {
+    $timer = date('Y-m-d H:i:s');
+    $data = [];
+    $tempbackup = ROOT_DIR.'/file/backup/';
+    $sql = "SELECT p.* FROM ponelement p LEFT JOIN pontree t ON p.tree = t.id WHERE t.id IS NULL";    
+    $result = $db->SimpleWhile($sql);
+    if ($result) {
+        foreach ($result as $peid => $row) {
+            $data[] = $row;
+        }
+    }
+    if (count($data) > 0) {
+        $filePath = $tempbackup.'pon_element_'.$timer.'.data';
+        if (file_exists($filePath)) {
+            unlink($filePath);
+        }
+        file_put_contents($filePath, serialize($data));
+        $deletedRecordIds = array_column($data, 'id');
+        if (!empty($deletedRecordIds)) {
+            $deleteSql = "DELETE FROM ponelement WHERE id IN (" . implode(',', $deletedRecordIds) . ")";
+			$db->query($deleteSql);
+        }
+    }
+}
+
+$onus_for_removal = [];
+$sql_clear_onu = $db->SimpleWhile('SELECT idonu, olt FROM `onus`');
+if (isset($sql_clear_onu) && count($sql_clear_onu) > 0) {
+    $checker_olts = [];
+    foreach ($sql_clear_onu as $ont) {
+        $checker_olts[] = array('olt'=>$ont['olt'],'idonu'=>$ont['idonu']);
+    }
+    $sql_clear_switch = $db->SimpleWhile('SELECT id FROM `switch`');
+    if (isset($sql_clear_switch) && count($sql_clear_switch) > 0) {
+        foreach ($sql_clear_switch as $olt) {
+            $checker_olt[$olt['id']]['id'] = $olt['id'];
+        }
+    }
+    foreach ($checker_olts as $idolt => $vam) {
+		if(isset($checker_olt[$vam['olt']]['id']) && $vam['olt']==$checker_olt[$vam['olt']]['id']){
+		   
+		}elseif(empty($vam['olt']) && empty($checker_olt[$vam['olt']]['id'])){
+			$onus_for_removal[] = array('olt'=>$vam['olt'],'idonu'=>$vam['idonu']); 
+		}else{
+			$onus_for_removal[] = array('olt'=>$vam['olt'],'idonu'=>$vam['idonu']); 
+		}
+    }
+	if (isset($onus_for_removal) && count($onus_for_removal) > 0) {
+		foreach ($onus_for_removal as $iddta => $onu) {
+			delete_onu($onu['idonu']);
+		}
+	}
+}
+?>

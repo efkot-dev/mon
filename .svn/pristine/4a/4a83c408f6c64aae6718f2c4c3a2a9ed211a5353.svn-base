@@ -1,0 +1,36 @@
+CREATE TABLE mon_ping3 (
+id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+name TEXT,
+netip TEXT,
+snmpro TEXT,
+typebattery ENUM('12', '24', '48', '72') DEFAULT '12',
+calibrations VARCHAR(10) NULL,
+energytime DATETIME,
+volt VARCHAR(11) NULL,
+energystatus ENUM('yes', 'no') DEFAULT 'no',
+energy VARCHAR(5) NULL,
+status0 VARCHAR(10) NULL,
+status20 VARCHAR(10) NULL,
+status40 VARCHAR(10) NULL,
+status60 VARCHAR(10) NULL,
+status80 VARCHAR(10) NULL,
+status100 VARCHAR(10) NULL,
+channel INT(11) NULL,
+locationid INT(11) NULL,
+'groups' INT(11) NULL,
+types VARCHAR(30) NULL,
+sendtelegram ENUM('yes', 'no') DEFAULT 'no'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+ALTER TABLE mon_ping3 ADD poller DATETIME DEFAULT '1970-01-01 00:00:00';
+ALTER TABLE mon_ping3 MODIFY typebattery ENUM('12', '24', '48', '72', '76') DEFAULT '12';
+ALTER TABLE mon_ping3 ADD temp INT(11) NULL, ADD charger INT(11) NULL;
+ALTER TABLE mon_ping3 ADD typedevice INT(11) NULL DEFAULT 1;
+
+ALTER TABLE `mon_voltage`
+CHANGE `mon_types` `mon_types` varchar(50) COLLATE 'utf8_unicode_ci' NULL AFTER `deviceid`,
+CHANGE `added` `added` varchar(100) NULL AFTER `mon_types`;
+
+ALTER TABLE mon_voltage MODIFY energy ENUM('1', '2');
+ALTER TABLE mon_voltage MODIFY volt DECIMAL(5,2);
+CREATE INDEX idx_deviceid_added ON mon_voltage(deviceid, added, energy, volt);

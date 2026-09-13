@@ -1,0 +1,9 @@
+ALTER TABLE onus MODIFY COLUMN rx DECIMAL(10, 2);
+ALTER TABLE `onus` CHANGE `wan` `wan` varchar(30) COLLATE 'utf8_general_ci' NULL AFTER `status`;
+
+ALTER TABLE `onus_log`
+CHANGE `iduser` `status` int(11) NULL AFTER `idolt`,
+CHANGE `types` `types` enum('cron','system','user','switch','signal','status','reboot') COLLATE 'utf8_general_ci' NULL DEFAULT 'system' AFTER `status`,
+CHANGE `info` `message` text COLLATE 'utf8_general_ci' NULL AFTER `types`;
+CREATE INDEX idx_types ON onus_log(types);
+CREATE INDEX idx_id_idonu_idolt_types ON onus_log(id, idonu, idolt, types);

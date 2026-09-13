@@ -1,0 +1,447 @@
+<?php
+if (!defined('PONMONITOR')){
+	die('Hacking attempt!');
+}
+$directory = ROOT_DIR.'/export/cache/';
+$traffic_directory = ROOT_DIR.'/export/snmpcache/';
+require ENGINE_DIR.'functions/service.php';
+define('QUEUE',true);
+$content = '';
+$result = '';
+$cacheType = defined('CACHE') ? CACHE : 'file';
+require_once ENGINE_DIR . 'init.queue.php';
+require_once ENGINE_DIR . 'init.data.php';
+$metatags = [
+	'title'=>'PMon system',
+	'description'=>'PMon system',
+	'page'=>'pmon'
+];
+switch($act){
+	case 'redis': 
+		if ($cacheType === 'redis') {
+			$result .= '
+				<div id="onu-speedbar">
+					<a class="brmhref" href="/?do=main"><i class="fi fi-rr-angle-left"></i>'.$lang['main'].'</a>
+					<a class="brmhref" href="/?do=operator"><i class="fi fi-rr-angle-left"></i>'.$lang['services'].'</a>
+					<span class="brmspan"><i class="fi fi-rr-angle-left"></i>Redis stats</span>
+				</div>';
+			$content .= '<div id="redis">Loading...</div><script>
+					updateRedisStats();
+			</script>';
+		}		
+	break;	
+	case 'restart':	
+		$id = isset($_GET['id']) ? Clean::int($_GET['id']): 0;	
+		if (isset($id) && is_numeric($id) && $id>0) {
+			$device = $db->Fast('switch','*',['id'=>$id]);
+			if(!empty($device['oidid'])){
+				$db->SQLdelete('taskers',['deviceid' => $device['id']]);	
+				first_cron($pdo,$device['id'],$device['oidid'],$USER['id'],date('Y-m-d H:i:s'));
+				$go->go('/?do=detail&act='.$device['device'].'&id='.$device['id']);
+				exit;
+			}
+		}
+		$go->go('/?do=main');
+		exit;
+	break;	
+	case 'setup':
+		$result .= '
+				<div id="onu-speedbar">
+					<a class="brmhref" href="/?do=main"><i class="fi fi-rr-angle-left"></i>'.$lang['main'].'</a>
+					<a class="brmhref" href="/?do=operator"><i class="fi fi-rr-angle-left"></i>'.$lang['services'].'</a>
+					<span class="brmspan"><i class="fi fi-rr-angle-left"></i>PMon modules</span>
+				</div>';	
+		$content .= main_setup_pmon();
+		$content .= main_js();
+	break;	
+	case 'deletlanguage':
+		$id = (isset($_GET['id']) ? Clean::int($_GET['id']) : null);	
+		$code = (isset($_GET['lang']) ? Clean::text($_GET['lang']) : null);	
+		$cleaned_code = $code !== null ? preg_replace('/[^A-Za-z0-9]/', '', $code) : null;
+		if(isset($id) && $id>0){
+			$db->query("DELETE FROM translations WHERE id = '{$id}'");
+		}
+		$go->go('/?do=operator&act=language&lang='.$cleaned_code.'');
+		exit;
+	break;	
+	case 'addlanguage':	
+		$sqlinsert = [];
+		$code = (isset($_POST['code']) ? Clean::text($_POST['code']) : null);
+		$cleaned_code = $code !== null ? preg_replace('/[^A-Za-z0-9]/', '', $code) : null;
+		if(isset($cleaned_code)){
+			$sqlinsert['name_key'] = 'pmon';
+			$sqlinsert['translation'] = 'PMon';
+			$sqlinsert['lang'] = $cleaned_code;			
+			$db->SQLinsert('translations',$sqlinsert);
+			if (isset($confPMon['CACHE']) && !empty($confPMon['CACHE']) && $confPMon['CACHE'] == 1) {
+				$cacheManager->delete("lang_".$cleaned_code);
+			}
+		}
+		$go->go('/?do=operator&act=language&lang='.$cleaned_code.'');
+		exit;
+	break;	
+	case 'mova':	
+		$sql_lang = "SELECT id, lang, name_key, translation FROM translations WHERE lang = 'ua' ORDER BY lang, name_key";
+		$sql = $db->SimpleWhile($sql_lang);
+		if (isset($sql) && count($sql) > 0) {
+			foreach ($sql as $mova) {
+				$text = $mova['name_key'];
+				$translation = $mova['translation'];
+				$new_lang = 'es';
+				echo "$text,$translation,$new_lang<br>";
+			}
+		}
+		die;
+	break;	
+	case 'translate':
+		$translation = '';	
+		$new_lang = 'es';
+		$sql_lang = "SELECT id, lang, name_key, translation FROM translations WHERE lang = 'ua' ORDER BY lang, name_key";
+		$sql = $db->SimpleWhile($sql_lang);
+		$name_key_post = isset($_POST['name_key']) ? $_POST['name_key'] : null;
+		if (isset($_POST['translated_text']) && $_POST['translated_text'] !== '') {
+			$translated_text = $_POST['translated_text'];
+			$insert_sql = "INSERT INTO translations (lang, name_key, translation) VALUES ('$new_lang', '$name_key_post', '$translated_text')";
+			$db->query($insert_sql);
+		}
+		if (isset($sql) && count($sql) > 0) {
+			foreach ($sql as $mova) {
+				$id = $mova['id'];
+				$name_key = $mova['name_key'];
+				$check_key = $db->Simple("SELECT id FROM translations WHERE lang = '{$new_lang}' AND name_key = '{$name_key}' LIMIT 1");
+				if (!$check_key) {
+					$translation = $mova['translation'];
+					break;
+				}
+			}
+		}
+		$result .= '
+			<h1>Переклад слова</h1>
+			<p><strong>Text:</strong> '.$translation.'</p>
+			<form method="post" action="">
+				<input type="hidden" name="name_key" value="'.$name_key.'">
+				<label for="translated_text">Ваш переклад:</label>
+				<input type="text" id="translated_text" name="translated_text" required>
+				<button type="submit">Перекласти</button>
+			</form>
+		';
+	break;	
+	case 'savelanguage':
+		$sqlinsert = [];
+		$code = (isset($_POST['code']) ? Clean::text($_POST['code']) : null);
+		$key = (isset($_POST['lang']) ? Clean::text($_POST['lang']) : null);
+		$translation = (isset($_POST['translation']) ? Clean::text($_POST['translation']) : null);
+		$cleaned_code = $code !== null ? preg_replace('/[^A-Za-z0-9]/', '', $code) : null;
+		$name_key = $key !== null ? preg_replace('/[^A-Za-z0-9_]/', '', $key) : null;
+		if(isset($cleaned_code) && isset($translation) && isset($name_key)){
+			$sqlinsert['name_key'] = $name_key;
+			$sqlinsert['translation'] = $translation;
+			$sqlinsert['lang'] = $cleaned_code;			
+			$db->SQLinsert('translations',$sqlinsert);
+			if (isset($confPMon['CACHE']) && !empty($confPMon['CACHE']) && $confPMon['CACHE'] == 1) {
+				$cacheManager->delete("lang_".$cleaned_code);
+			}
+		}
+		$go->go('/?do=operator&act=language&lang='.$cleaned_code.'');
+		exit;
+	break;	
+	case 'language':		
+		$result .= '
+			<div id="onu-speedbar">
+				<a class="brmhref" href="/?do=main"><i class="fi fi-rr-angle-left"></i>'.$lang['main'].'</a>
+				<a class="brmhref" href="/?do=operator"><i class="fi fi-rr-angle-left"></i>'.$lang['services'].'</a>
+				<span class="brmspan"><i class="fi fi-rr-angle-left"></i>Language</span>
+			</div>';
+		$where = '';
+		$selectedLang = isset($_GET['lang']) ? Clean::text($_GET['lang']): null;
+		if(isset($selectedLang) && $selectedLang != null) {
+			$where = "WHERE lang = '$selectedLang'";
+		}	
+		$content_option = '<select name="lang" id="lang">';
+		$sql_lang_options = "SELECT DISTINCT lang FROM translations ORDER BY lang";
+		$langs = $db->SimpleWhile($sql_lang_options);
+		foreach ($langs as $language) {
+			$selected = (isset($selectedLang) && $selectedLang == $language['lang']) ? ' selected' : '';
+			$content_option .= '<option value="'.$language['lang'].'"'.$selected.'>'.$language['lang'].'</option>';
+		}		
+		$content_option .= '</select>';
+		$content .= '<div class="flex-right mb20">		
+		<form method="get" action="">
+			<input name="do" type="hidden" value="operator">
+			<input name="act" type="hidden" value="language">
+				<div class="flex-right">'.$content_option.'	<input type="submit" value="Change Language"></div>
+		</form>								
+		'.(isset($selectedLang)? '<input class="speed_search_lang" type="text" id="search" placeholder="Search translations...">' : '').'
+		'.(isset($selectedLang)? '
+		<div class="border-right"></div>
+		<form method="post" action="">
+			<input name="do" type="hidden" value="operator">
+			<input name="act" type="hidden" value="savelanguage">
+				<div class="flex-right">
+					<input class="speed_search_code" type="text" name="code" placeholder="code" readonly value="'.$selectedLang.'">
+					<input class="speed_search_lang" type="text" name="lang" placeholder="Key">
+					<input class="speed_search_lang" type="text" name="translation" placeholder="Description">
+					<input type="submit" value="Add language">
+				</div>
+		</form>
+		' : '
+				<div class="border-right"></div>
+		<form method="post" action="">
+			<input name="do" type="hidden" value="operator">
+			<input name="act" type="hidden" value="addlanguage">
+				<div class="flex-right">
+					<input class="speed_search_code" type="text" name="code" placeholder="code">
+					<input type="submit" value="Create a language">
+				</div>
+		</form>').'
+		</div>';		
+		if(isset($_GET['lang'])) {
+			$sql_lang = "SELECT id, lang, name_key, translation FROM translations $where ORDER BY lang, name_key";
+			$sql = $db->SimpleWhile($sql_lang); 
+			if (isset($sql) && count($sql) > 0) {
+				$content .= '<table class="resp-tab list-onu-olt">
+								<thead>
+									<tr>
+										<th width="5%">Code</th>
+										<th width="15%">Key</th>
+										<th>Translation</th>
+										<th></th>
+										<th></th>
+									</tr>
+								</thead>
+								<tbody id="translationsTable">';
+				foreach ($sql as $mova) {
+					$content .= '<tr>
+									<td class="dist mobile"><span class="off_">'.$mova['lang'].'</span></td>
+									<td class="mobile"><span class="on_">'.$mova['name_key'].'</span></td>
+									<td class="description_name mobile_font"><span class="name-onu">'.$mova['translation'].'</span></td>
+									<td><a href="/?do=operator&act=editlang&id='.$mova['id'].'&lang='.$mova['lang'].'"><img src="../style/img/edit.png"></a></td>
+									<td><a href="/?do=operator&act=deletlang&id='.$mova['id'].'&lang='.$mova['lang'].'"><img src="../style/img/delet.png"></a></td>
+								</tr>';
+				}
+				$content .= '</tbody></table>';
+			} else {
+				$content .= '<p>No translations found for the selected language.</p>';
+			}
+		}
+		$content .= '<script>
+						document.getElementById("search").addEventListener("keyup", function() {
+							var input = this.value.toLowerCase();
+							var table = document.getElementById("translationsTable");
+							var trs = table.getElementsByTagName("tr");
+
+							for (var i = 0; i < trs.length; i++) {
+								var tds = trs[i].getElementsByTagName("td");
+								var found = false;
+								for (var j = 0; j < tds.length; j++) {
+									if (tds[j].innerText.toLowerCase().indexOf(input) > -1) {
+										found = true;
+										break;
+									}
+								}
+								trs[i].style.display = found ? "" : "none";
+							}
+						});
+					</script>';
+    break;
+	case 'editlang':
+		$id = (isset($_GET['id']) ? Clean::int($_GET['id']) : null);
+		if(isset($id) && $id>0){
+			$sql_cat = $pdo->prepare("SELECT id, lang, name_key, translation FROM translations WHERE id = :id");
+			$sql_cat->execute([':id' => $id]);
+			$get_cat = $sql_cat->fetch(PDO::FETCH_ASSOC);
+			$result .= '
+				<div id="onu-speedbar">
+					<a class="brmhref" href="/?do=main"><i class="fi fi-rr-angle-left"></i>'.$lang['main'].'</a>
+					<a class="brmhref" href="/?do=operator"><i class="fi fi-rr-angle-left"></i>'.$lang['services'].'</a>
+					<a class="brmhref" href="/?do=operator&act=language"><i class="fi fi-rr-angle-left"></i>Language</a>
+					<span class="brmspan"><i class="fi fi-rr-angle-left"></i>Edit language</span>
+				</div>';
+			$content .= '<form method="post" action="">
+				<input name="do" type="hidden" value="operator">
+				<input name="act" type="hidden" value="savelang">
+					<div class="flex-right">
+						<input type="hidden" name="id" value="'.$get_cat['id'].'">
+						<input class="speed_search_code" type="text" name="code" readonly value="'.$get_cat['lang'].'">
+						<input class="speed_search_lang" type="text" name="lang" readonly value="'.$get_cat['name_key'].'">
+						<input class="speed_search_lang" type="text" name="translation" value="'.$get_cat['translation'].'">
+						<input type="submit" value="Update">
+					</div>
+			</form>';	
+		}
+	break;	
+	case 'deletlang':		
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		if ($id !== null && $id > 0) {
+			$sql_cat = $pdo->prepare("SELECT id, lang FROM translations WHERE id = :id");
+			$sql_cat->execute([':id' => $id]);
+			$get_cat = $sql_cat->fetch(PDO::FETCH_ASSOC);			
+			$stmt = $pdo->prepare("DELETE FROM translations WHERE id = :id");
+			$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+			$stmt->execute();
+			$go->go('/?do=operator&act=language&lang='.$get_cat['lang']);
+			exit;
+		}
+		$go->go('/?do=operator&act=language');
+		exit;	
+	break;		
+	case 'savelang':		
+		$id = isset($_POST['id']) ? Clean::int($_POST['id']) : null;
+		$translation = isset($_POST['translation']) ? Clean::text($_POST['translation']) : null;
+		$code = isset($_POST['code']) ? Clean::text($_POST['code']) : null;
+		if ($id !== null && $id > 0 && $translation !== null) {
+			$stmt = $pdo->prepare("UPDATE translations SET translation = :translation WHERE id = :id");
+			$stmt->bindParam(':translation', $translation, PDO::PARAM_STR);
+			$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+			$stmt->execute();
+			$go->go('/?do=operator&act=language&lang='.$code);
+			exit;
+		}
+		$go->go('/?do=operator&act=language');
+		exit;
+    break;	
+	case 'cleared':		
+		deleteFiles($traffic_directory);
+			$go->go('/?do=operator');
+			exit;
+		break;	
+	case 'cache':	
+	$result .= '
+		<div id="onu-speedbar">
+			<a class="brmhref" href="/?do=main"><i class="fi fi-rr-angle-left"></i>'.$lang['main'].'</a>
+			<a class="brmhref" href="/?do=operator"><i class="fi fi-rr-angle-left"></i>'.$lang['services'].'</a>
+			<span class="brmspan"><i class="fi fi-rr-angle-left"></i>Cache</span>
+		</div>';		
+		if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
+			deleteFiles($directory);
+			$go->go('/?do=operator&act=cache');
+			exit;
+		} else {
+			$content .= listFiles($directory);
+			$content .= '<form method="post" class="clear_cache">';
+			$content .= '<button type="submit" class="formadd" name="delete">'.$lang['delete_all_file'].'</button>';
+			$content .= '</form>';
+		}
+	break;	
+	case 'infredis':
+		if ($cacheType === 'redis') {
+			echo getRedisMemory($redis);
+			echo"<div class=\"redis_stats\">";
+			echo getRedisStats($redis);
+			echo "</div>";
+		}
+		exit;
+		break;	
+	case 'redisclear':
+			$go->go('/?do=operator');
+			exit;
+		exit;
+		break;	
+	case 'mysql': 
+		$result .= '
+			<div id="onu-speedbar">
+				<a class="brmhref" href="/?do=main"><i class="fi fi-rr-angle-left"></i>'.$lang['main'].'</a>
+				<a class="brmhref" href="/?do=operator"><i class="fi fi-rr-angle-left"></i>'.$lang['services'].'</a>
+				<span class="brmspan"><i class="fi fi-rr-angle-left"></i>DataBase</span>
+			</div>';
+		$sql_result = $db->SimpleWhile("SHOW TABLES FROM `".DBNAME."`");			
+		foreach ($sql_result as $name) {			
+			$select .= "<option value=\"" . $name['Tables_in_'.DBNAME] . "\" selected>" . $name['Tables_in_'.DBNAME] . "</option>";
+		}
+		$content .="<table class=mysql border=\"0\" cellspacing=\"0\" cellpadding=\"3\" align=\"center\">" . "<form method=\"post\" action=\"\">" . "<tr><td><select name=\"datatable[]\" size=\"10\" multiple=\"multiple\" class=\"select\">" . $select . "</select></td><td>" . "<table border=\"0\" cellspacing=\"0\" cellpadding=\"3\">" . "<tr><td valign=\"top\"><input type=\"radio\" name=\"type\" value=\"Optimize\" checked></td><td>Оптимізація бази даних<br /><font class=\"small\">Оптимізуючи базу даних, ви зменшуєте її розмір і, відповідно, прискорюєте її роботу. Рекомендується використовувати цю функцію не менше ніж раз на тиждень..</font></td></tr>" . "<tr><td valign=\"top\"><input type=\"radio\" name=\"type\" value=\"Repair\"></td><td>Відновлення бази даних<br /><font class=\"small\">При несподіваній зупинці сервера MySQL під час виконання будь-яких дій може статися пошкодження структури таблиць бази даних. Використання цієї функції дозволить відремонтувати пошкоджені таблиці.</font></td></tr></table>" . "</td></tr>" . "<input type=\"hidden\" name=\"op\" value=\"StatusDB\">" . "<tr><td colspan=\"2\" align=\"center\"><input type=\"submit\" value=\"Спробуємо\"></td></tr></form></table>";
+		if ($_POST ['type'] == "Optimize") {
+			$sql_result = $db->SimpleWhile( "SHOW TABLE STATUS FROM `".DBNAME. "`");
+			$tables = array ();
+			foreach ($sql_result as $row) {
+				$total = $row ['Data_length'] + $row ['Index_length'];
+				$totaltotal += $total;
+				$free = ($row ['Data_free']) ? $row ['Data_free'] : 0;
+				$totalfree += $free;
+				$i ++;
+				$otitle = (! $free) ? "<font color=\"#FF0000\">Not support</font>" : "<font color=\"#009900\">Speed</font>";
+				$tables [] = $row['Name'];
+				$content3 .= "<tr class=\"bgcolor1\"><td align=\"center\">" . $i . "</td><td>".$row['Name']."</td><td>".mksize($total)."</td><td align=\"center\">" . $otitle . "</td><td align=\"center\">" . mksize ( $free ) . "</td></tr>";
+			}
+			$db->query ( "OPTIMIZE TABLE " . implode ( ", ", $tables ) ) ;
+			$content .="<center><font class=\"option\">Оптимізація: " . DBNAME . "<br />Загальний розмір: " . mksize ( $totaltotal ) . "<br />Загальна інформація: " . mksize ( $totalfree ) . "<br /><br />" . "<table border=\"0\" cellpadding=\"3\" cellspacing=\"1\" width=\"100%\"><tr><td class=\"colhead\" align=\"center\">№</td><td class=\"colhead\">Таблиця</td><td class=\"colhead\">Розмір</td><td class=\"colhead\">Статус</td><td class=\"colhead\">Оптимізовано</td></tr>" . "" . $content3 . "</table>";
+		} elseif ($_POST ['type'] == "Repair") {
+			$sql_result = $db->SimpleWhile ( "SHOW TABLE STATUS FROM `" . DBNAME . "`" ) ;
+			foreach ($sql_result as $row) {
+				$total = $row ['Data_length'] + $row ['Index_length'];
+				$totaltotal += $total;
+				$i++;
+				$rresult = $db->query ( "REPAIR TABLE " . $row['Name'] . "" ) ;
+				$otitle = (! $rresult) ? "<font color=\"#FF0000\">Error</font>" : "<font color=\"#009900\">OK</font>";
+				$content4 .="<tr class=\"bgcolor1\"><td align=\"center\">" . $i . "</td><td>" . $row['Name'] . "</td><td>" . mksize ( $total ) . "</td><td align=\"center\">" . $otitle . "</td></tr>";
+			}
+			$content .="<center><font class=\"option\">Ремонт базы данных: " . DBNAME . "<br />Size database: " . mksize ( $totaltotal ) . "<br /><br />" . "<table border=\"0\" cellpadding=\"3\" cellspacing=\"1\" width=\"100%\"><tr><td class=\"colhead\" align=\"center\">№</td><td class=\"colhead\">Таблица</td><td class=\"colhead\">Размер</td><td class=\"colhead\">Статус</td></tr>" . "" . $content4 . "</table>";
+		}		
+	break;
+		default:
+		$result .= '
+		<div id="onu-speedbar">
+			<a class="brmhref" href="/"><i class="fi fi-rr-angle-left"></i>'.$lang['main'].'</a>
+			<span class="brmspan"><i class="fi fi-rr-angle-left"></i>'.$lang['services'].'</span>
+		</div>
+		';
+		$content .= '
+			<div class="admin-1">
+				<div class="main-panel">
+					<div class="admin-zvit">';
+		if ($cacheType === 'redis') {
+		$content .='<a href="/?do=stats_api_view"><img src="../style/img/devmonitor.png"><span>API Statistics</span></a>';
+		$content .='<a href="/?do=device"><img src="../style/img/pondevice.png"><span>'.$lang['alldevice'].'</span></a>';
+		$content .='<a href="/?do=operator&act=redis"><img src="../style/img/redis.png"><span>View Redis cache</span></a>';
+		$content .='<a href="/?do=operator&act=redisclear"><img src="../style/img/redis.png"><span>Clear Redis Cache</span></a>';
+		}
+		$content .='<a href="/?do=operator&act=mysql"><img src="../style/img/mysql.png"><span>DabaBase</span></a>';
+		if (isset($USER['class']) && $USER['class']>=4 && $access->get('setup')){
+			$content .='<a href="/?do=pmonlogin"><img src="../style/img/access_denied.png"><span>'.$lang['access_denied'].'</span></a>';
+			$content .='<a href="/?do=pmon"><img src="../style/img/setup_pmon.png"><span>Variables</span></a>';
+		}
+		if($access->get('view_notification') && $config['telegram']=='on'){
+			$sql_notification = $db->Simple("SELECT count(id) as sender FROM notification WHERE added >= CURDATE()");
+			if(isset($sql_notification['sender']) && $sql_notification['sender']>0){
+				$mess = ' <span class="notification">'.$sql_notification['sender'].'</span>';
+			}
+			$content .= '<a href="/?do=notification"><img src="../style/img/telegram_main.png"><span>'.$lang['notification'].$mess.'</span></a>';
+		}	
+		if ($access->get('setup')) {
+			$content .='<a href="/?do=groups"><img src="../style/img/server_stats.png"><span>'.$lang['group'].'</span></a>';
+			$content .='<a href="/?do=operator&act=cache"><img src="../style/img/file_cache.png"><span>Cache</span></a>';
+			$content .='<a href="/?do=operator&act=cleared"><img src="../style/img/file_cache.png"><span>Traffic Cache</span></a>';
+			$content .='<a href="/?do=operator&act=setup"><img src="../style/img/modules_pmon.png"><span>'.$lang['peremini_pmonini'].'</span></a>';
+		}
+		$content .='
+			<a href="/?do=reset&act=porterror">
+				<img src="../style/img/cleardb.png"><span>'.$lang['reset1'].'</span>
+			</a>			
+			<a href="/?do=reset&act=logger">
+				<img src="../style/img/cleardb.png"><span>'.$lang['reset2'].'</span>
+			</a>			
+			<a href="/?do=reset&act=historysignal">
+				<img src="../style/img/cleardb.png"><span>'.$lang['reset3'].' [Rx Onu]</span>
+			</a>			
+			<a href="/?do=reset&act=historysignals">
+				<img src="../style/img/cleardb.png"><span>'.$lang['reset3'].' [Rx Olt]</span>
+			</a>			
+			<a href="/?do=reset&act=devicelogs">
+				<img src="../style/img/cleardb.png"><span>'.$lang['devicelog'].'</span>
+			</a>			
+			<a href="/?do=operator&act=language">
+				<img src="../style/img/language_main.png"><span>Language</span>
+			</a>			
+			';
+		if ($access->get('setup')) {
+			$content .= m_url('taskers','?do=taskers', 'server_stats.png', $lang['syspmon']);
+		}
+		$content .= '
+					</div>
+				</div>
+			</div>';
+}
+$tpl->load_template('main/main.tpl');
+$tpl->set('{block-main}','<div class="mainadmin">'.$result.$content.'</div>');
+$tpl->compile('content');
+$tpl->clear();
+?>

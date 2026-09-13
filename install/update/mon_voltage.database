@@ -1,0 +1,8 @@
+CREATE TABLE mon_voltage (
+id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+energy TEXT,
+volt TEXT,
+deviceid INT(11),
+mon_types TEXT,
+added DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -1,0 +1,2 @@
+ALTER TABLE switch_port ADD lockport ENUM('yes', 'no') DEFAULT 'no';
+ALTER TABLE `switch` CHANGE `skladid` `temp_cpu` int(11) NULL AFTER `photo`;

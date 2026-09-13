@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /engine/go.php
+Disallow: /user/
+Disallow: /*do=go

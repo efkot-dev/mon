@@ -1,0 +1,68 @@
+CREATE TABLE `calendar_categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `color` varchar(100) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE `calendar_employees` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+CREATE TABLE `calendar_events` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `employee_id` int(11) DEFAULT NULL,
+  `category_id` int(11) DEFAULT NULL,
+  `start_date` date DEFAULT NULL,
+  `start_time` datetime DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `end_time` datetime DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `icon` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `employee_id` (`employee_id`),
+  KEY `category_id` (`category_id`),
+  CONSTRAINT `calendar_events_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `calendar_employees` (`id`),
+  CONSTRAINT `calendar_events_ibfk_2` FOREIGN KEY (`category_id`) REFERENCES `calendar_categories` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+CREATE TABLE `shop_invoices` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `markup_percentage` decimal(5,2) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `name` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `update_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `close_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `status` int(11) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+CREATE TABLE `shop_invoice_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `invoice_id` int(11) DEFAULT NULL,
+  `product_id` int(11) DEFAULT NULL,
+  `quantity` int(11) NOT NULL,
+  `purchase_price` decimal(10,2) NOT NULL,
+  `total_purchase` decimal(10,2) NOT NULL,
+  `total_price_with_markup` decimal(10,2) NOT NULL,
+  `custom_price` decimal(10,2) DEFAULT NULL,
+  `custom_total` decimal(10,2) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `invoice_id` (`invoice_id`),
+  KEY `product_id` (`product_id`),
+  CONSTRAINT `shop_invoice_items_ibfk_1` FOREIGN KEY (`invoice_id`) REFERENCES `shop_invoices` (`id`),
+  CONSTRAINT `shop_invoice_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `shop_products` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE `shop_used` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `events_id` int(11) DEFAULT NULL,
+  `events_usr` int(11) DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `close_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+ALTER TABLE `calendar_events` DROP FOREIGN KEY `calendar_events_ibfk_1`;
+
+ALTER TABLE `calendar_events` ADD CONSTRAINT `calendar_events_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `users` (`id`);

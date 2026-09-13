@@ -1,0 +1,106 @@
+CREATE TABLE `oblenergo` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  `lan` text DEFAULT NULL,
+  `lon` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+ALTER TABLE oblenergo ADD locationid INT(11) NULL DEFAULT NULL AFTER added;
+ALTER TABLE oblenergo_tp ADD countliniy INT(11) NULL DEFAULT NULL AFTER added;
+ALTER TABLE oblenergo ADD `locationname` TEXT NULL DEFAULT NULL AFTER locationid;
+ALTER TABLE oblenergo_tp ADD `oblenergoname` TEXT NULL DEFAULT NULL AFTER oblenergoid;
+ALTER TABLE oblenergo_pillar ADD `descr` TEXT NULL DEFAULT NULL AFTER added;
+
+CREATE TABLE `oblenergo_tp` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name_tp` text DEFAULT NULL,
+  `nomer_tp` text DEFAULT NULL,
+  `type_tp` text DEFAULT NULL,
+  `count_tp` text DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `locationname` text DEFAULT NULL,
+  `oblenergoid` int(11) DEFAULT NULL,
+  `oblenergoame` text DEFAULT NULL,
+  `photo` text DEFAULT NULL,
+  `lan` text DEFAULT NULL,
+  `lon` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `oblenergo_pillar` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `nomer_pillar` text DEFAULT NULL,
+  `type_pillar` text DEFAULT NULL,
+  `oblenergoid` int(11) DEFAULT NULL,
+  `tpid` int(11) DEFAULT NULL,
+  `count_concurrent` int(11) DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `photo` text DEFAULT NULL,
+  `lan` text DEFAULT NULL,
+  `lon` text DEFAULT NULL,
+  `updates` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `oblenergo_concurent` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `photo` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `oblenergo_countliniy` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `nomer_liniy` int(11) DEFAULT NULL,
+  `oblenergoid` int(11) DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `tpid` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `oblenergo_pillarliniy` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `lineid` int(11) DEFAULT NULL,
+  `pillarid` int(11) DEFAULT NULL,
+  `oblenergoid` int(11) DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `tpid` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `oblenergo_subprovider` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `providerid` int(11) DEFAULT NULL,
+  `pillarid` int(11) DEFAULT NULL,
+  `oblenergoid` int(11) DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `tpid` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `oblenergo_connect_pillar` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `pillar1` int(11) DEFAULT NULL,
+  `oblenergoid` int(11) DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `tpid` int(11) DEFAULT NULL,
+  `count_line` int(11) DEFAULT NULL,
+  `pillar2` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+ALTER TABLE `oblenergo_tp`
+ADD `subname` text COLLATE 'utf8_general_ci' NULL AFTER `name_tp`;
+

@@ -1,0 +1,131 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') {
+    exit(0);
+}
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+define('PONMONITOR', true);
+define('ROOT_DIR', __DIR__);
+define('SQL_DIR', ROOT_DIR . '/install/update/');
+define('LOCK_FILE', ROOT_DIR . '/update.lock');
+const SKIP_CODES = [1050,1005,1045,1051,1054,1060,1061,1062,1064,1068,1091,1136,1146,1265,1813];
+if (version_compare(PHP_VERSION, '8.0.0', '<')) {
+    fwrite(STDERR, "PHP 8.0+\n");
+    exit(1);
+}
+require_once ROOT_DIR . '/inc/database.php';
+function connectPdo(): PDO {
+    return new PDO('mysql:host=' . DBHOST . ';dbname=' . DBNAME . ';charset=utf8mb4',DBUSER,DBPASS,[PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES => false,PDO::MYSQL_ATTR_MULTI_STATEMENTS => false]);
+}
+function validateSqlFile(string $file): string {
+    $real = realpath($file);
+    $base = realpath(SQL_DIR);
+    if (!$real || !$base || !str_starts_with($real, $base)) {
+        throw new RuntimeException("Invalid SQL Error1");
+    }
+    return $real;
+}
+function shouldSkipSqlError(string $stmt, PDOException $e, int $code): bool {
+    if (in_array($code, SKIP_CODES, true)) {
+        return true;
+    }
+    $sql = strtolower(trim($stmt));
+    $msg = strtolower($e->getMessage());
+
+    $skipStmtPatterns = [
+        '/\bimport\s+tablespace\b/',
+        '/\bdiscard\s+tablespace\b/',
+        '/\bchange\s+`?start_time`?\s+`?start_time`?\s+dat\b/',
+        '/\bchange\s+`?[a-z0-9_]+`?\s+`?[a-z0-9_]+`?\s+dat\b/',
+    ];
+    foreach ($skipStmtPatterns as $rx) {
+        if (preg_match($rx, $sql)) {
+            return true;
+        }
+    }
+
+    $skipMsgPatterns = [
+        'tablespace for table',
+        'please discard the tablespace before import',
+        'already exists',
+        'duplicate column name',
+        'unknown column',
+    ];
+    foreach ($skipMsgPatterns as $needle) {
+        if (strpos($msg, $needle) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+function executeSqlStatements(PDO $pdo, string $file, int &$skipped): int {
+    $path = validateSqlFile($file);
+    $sql = file_get_contents($path);
+    if ($sql === false) {
+        throw new RuntimeException("Cannot read Error2");
+    }
+    $statements = array_filter(array_map('trim', preg_split('/;\s*\n|;$/m', $sql)));
+    $executed = 0;
+    foreach ($statements as $stmt) {
+        if ($stmt === '' || preg_match('/^\s*#/', $stmt)) {
+            continue;
+        }
+        try {
+            $pdo->exec($stmt);
+            $executed++;
+            echo "OK: ".substr($stmt, 0,60).PHP_EOL;
+        } catch (PDOException $e) {
+            $code = (int)($e->errorInfo[1] ?? 0);
+            if (shouldSkipSqlError($stmt, $e, $code)) {
+                $skipped++;
+                echo "SKIP($code): ".substr(preg_replace('/\s+/', ' ', $stmt), 0, 100).PHP_EOL;
+                continue;
+            }
+            throw $e;
+        }
+    }
+    return $executed;
+}
+try {
+    $lockFp = fopen(LOCK_FILE, 'c+');
+    if (!$lockFp) {
+        throw new RuntimeException('Cannot open lock file');
+    }
+    if (!flock($lockFp, LOCK_EX | LOCK_NB)) {
+        fwrite(STDOUT, "Update already running\n");
+        exit(0);
+    }
+    $pdo = connectPdo();
+    $executed = 0;
+    $skipped = 0;
+    foreach (glob(SQL_DIR . '*.database') ?: [] as $file) {
+        $executed += executeSqlStatements($pdo, $file, $skipped);
+    }
+    foreach (glob(SQL_DIR . '*.insert') ?: [] as $file) {
+        $executed += executeSqlStatements($pdo, $file, $skipped);
+    }
+    $deleteNames = ['FEEDING','TIMER_SPEEDPMON','ENABLE_SPEEDPMON','COUNT_SPEEDPMON','DISABLE_SPEEDPMON','PMON_SUPPORT','PMON_TECH_UID','PMON_TECH_API','TIMER_COUNT_CHANGE_RX','ENABLE_CRITICAL_CHANGE_RX','REASONONUHUAWEIG','SERVERLOAD','STATUSONUHUAWEI','STATUSONUBDCOM','REASONONUBDCOM','COUNTCHECKER','TIME_REASONONUBDCOM','POWERDCBDCOM','PORTCMD','PORTPHP','TYPEPING'];
+    $stmt = $pdo->prepare('DELETE FROM pmonini WHERE name = ?');
+    foreach (array_unique($deleteNames) as $name) {
+        $stmt->execute([$name]);
+    }
+    $pdo->exec("UPDATE pmonini SET value='1' WHERE name='CACHE'");
+    $pdo->exec("DELETE FROM pmonini WHERE value='0' AND name='CACHE'");
+    foreach (['sgnal_sfp','feeding','switch_status','pmon_progress','onu_message','panel_client','read_messages','appmessage'] as $table) {
+        $pdo->exec("DROP TABLE IF EXISTS `{$table}`");
+    }
+    echo PHP_EOL;
+    echo "Update Successfully\n";
+    echo "Executed: {$executed}\n";
+    echo "Skipped: {$skipped}\n";
+    flock($lockFp, LOCK_UN);
+    fclose($lockFp);
+    exit(0);
+} catch (Throwable $e) {
+    error_log('[PMON UPDATE ERROR] ' . $e->getMessage());
+    fwrite(STDERR, "Update failed: " . $e->getMessage() . PHP_EOL);
+    exit(1);
+}
+?>

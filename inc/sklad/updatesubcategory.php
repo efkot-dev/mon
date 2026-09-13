@@ -1,0 +1,31 @@
+<?php
+if (!defined('PONMONITOR') && !defined('SKLAD')) {
+    die('Hacking attempt!');
+}
+if (!isset($_POST['id']) || !is_numeric($_POST['id']) || $_POST['id'] <= 0) {
+    $go->go('/?do=tmc');
+    exit;
+}
+$id = Clean::int($_POST['id']);
+$sqlinsert = [];
+if (!empty($_POST['name'])) {
+    $sqlinsert['name'] = Clean::text($_POST['name']);
+}
+if (!empty($_POST['note'])) {
+    $sqlinsert['note'] = Clean::text($_POST['note']);
+}
+if (!empty($sqlinsert)) {
+    try {
+        $setPart = implode(', ', array_map(fn($key) => "$key = :$key", array_keys($sqlinsert)));
+        $stmt = $pdo->prepare("UPDATE sklad_sub_category SET $setPart WHERE id = :id");
+        $sqlinsert['id'] = $id;
+        $stmt->execute($sqlinsert);
+    } catch (PDOException $e) {
+        die("Database error: " . $e->getMessage());
+    }    
+    $go->go('/?do=tmc&act=category');
+    exit;
+}
+$go->go('/?do=tmc');
+exit;
+?>

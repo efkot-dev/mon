@@ -1,0 +1,12 @@
+CREATE TABLE `onus_photo` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `idonu` int(11) DEFAULT NULL,
+  `userid` int(11) DEFAULT NULL,
+  `onukey` text DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `img` text DEFAULT NULL,
+  `comment` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_idonu` (`idonu`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;

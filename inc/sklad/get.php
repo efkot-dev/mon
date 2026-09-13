@@ -1,0 +1,69 @@
+<?php
+if (!defined('PONMONITOR') && !defined('SKLAD')) {
+    die('Hacking attempt!');
+}
+
+$auto = false;
+$metatags = ['title' => 'Склад, обладнання', 'description' => 'Склад, обладнання', 'page' => 'sklad'];
+$speedbar = '<a class="brmhref" href="/?do=tmc"><i class="fi fi-rr-apps"></i>' . $lang['main'] . '</a>';
+$speedbar .= '<a class="brmhref" href="/?do=tmc"><i class="fi fi-rr-angle-left"></i>Склад, обладнання</a>';
+$speedbar .= '<span class="brmspan"><i class="fi fi-rr-angle-left"></i>Список категорій</span>';
+$speedbar_block = '<div id="onu-speedbar">' . $speedbar . '</div>';
+$stmt = $pdo->query("SELECT * FROM sklad_category");
+$categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $pdo->query("SELECT * FROM sklad_sub_category");
+$sub_categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$subCatByCategory = [];
+foreach ($sub_categories as $sub) {
+    $subCatByCategory[$sub['cat_id']][] = ['id' => $sub['id'], 'name' => $sub['name']];
+}
+$stmt = $pdo->query("
+    SELECT category_id, sub_cat_id, SUM(quantity) AS total_quantity 
+    FROM sklad_tovar 
+    WHERE status = 'active' 
+    GROUP BY category_id, sub_cat_id
+");
+$quantities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$categoryCount = [];
+$subCategoryCount = [];
+foreach ($quantities as $q) {
+    $category_id = $q['category_id'];
+    $sub_id = $q['sub_cat_id'];
+    $quantity = (int)$q['total_quantity'];
+    if ($sub_id) {
+        $subCategoryCount[$sub_id] = $quantity;
+    } else {
+        $categoryCount[$category_id] = $quantity;
+    }
+}
+$content .= '<div class="category-grid">';
+foreach ($categories as $category) {
+    $category_id = (int)$category['id'];
+    $total_rows = $categoryCount[$category_id] ?? 0;
+	$img = (!empty($category['img']) ? $category['img'] : 'pmon_category.jpeg');
+    $content .= '
+        <div class="category-item">
+            <img src="/file/photo/' . $img . '" alt="' . $category['name'] . '">
+            <h3>' . $category['name'] . '</h3>
+            <!---<p>(Кількість товарів: ' . $total_rows . ')</p>-->
+            <ul>';
+    if (isset($subCatByCategory[$category_id])) {
+        foreach ($subCatByCategory[$category_id] as $sub) {
+            $sub_id = $sub['id'];
+            $total_sub = $subCategoryCount[$sub_id] ?? 0;
+
+            if ($total_sub == 1) {
+                $css_total = '<span class="loses">1</span>';
+            } elseif ($total_sub > 1) {
+                $css_total = '<span class="greens">' . $total_sub . '</span>';
+            } else {
+                $css_total = '';
+            }
+            $content .= '<li><a href="/?do=tmc&act=list&catid=' . $category_id . '&subid=' . $sub_id . '">' 
+                      . $sub['name'] . ' ' . $css_total . '</a></li>';
+        }
+    }
+    $content .= '</ul></div>';
+}
+$content .= '</div>';
+?>

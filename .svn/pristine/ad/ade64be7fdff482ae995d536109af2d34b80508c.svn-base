@@ -1,0 +1,77 @@
+CREATE TABLE `location_street` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `locationname` text DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+CREATE TABLE `skyscraper` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `locationid` int(11) DEFAULT NULL,
+  `locationname` text DEFAULT NULL,
+  `streetid` int(11) DEFAULT NULL, 
+  `street` text DEFAULT NULL,  
+  `nomer` text DEFAULT NULL,  
+  `poverxiv` text DEFAULT NULL,
+  `kvartur` text DEFAULT NULL,
+  `poverxiv_int` int(11) DEFAULT NULL,
+  `kvartur_int` int(11) DEFAULT NULL,  
+  `onus` int(11) DEFAULT NULL,
+  `online` int(11) DEFAULT NULL,
+  `offline` int(11) DEFAULT NULL,
+  `view` text DEFAULT NULL, 
+  `status` text DEFAULT NULL, 
+  `monitor` text DEFAULT NULL, 
+  `update` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+CREATE TABLE `skyscraper_kv` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `kvindex` int(11) DEFAULT NULL,
+  `onukey` text DEFAULT NULL,
+  `skyscraperid` int(11) DEFAULT NULL,
+  `status` int(11) DEFAULT NULL,
+  `signal` text DEFAULT NULL,
+  `idonu` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+CREATE TABLE `skyscraper_device` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text DEFAULT NULL,
+  `device_id` int(11) DEFAULT NULL,
+  `types` text DEFAULT NULL,
+  `groups_id` int(11) DEFAULT NULL, 
+  `note` text DEFAULT NULL,  
+  `view` text DEFAULT NULL, 
+  `status` text DEFAULT NULL, 
+  `monitor` text DEFAULT NULL, 
+  `update` datetime DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+CREATE TABLE `skyscraper_comm` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `note` text DEFAULT NULL,
+  `info` text DEFAULT NULL,
+  `house` int(11) DEFAULT NULL,
+  `kv` int(11) DEFAULT NULL,
+  `us` int(11) DEFAULT NULL,
+  `added` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+ALTER TABLE onusdata ADD houseid INT(11) NULL DEFAULT NULL AFTER uid;
+ALTER TABLE onusdata ADD kvid INT(11) NULL DEFAULT NULL AFTER uid;
+ALTER TABLE skyscraper ADD note text NULL DEFAULT NULL AFTER name;
+ALTER TABLE skyscraper_kv ADD kvnomer text NULL DEFAULT NULL AFTER kvindex;
+ALTER TABLE skyscraper_kv ADD dogovir text NULL DEFAULT NULL AFTER kvindex;
+ALTER TABLE skyscraper_kv ADD login text NULL DEFAULT NULL AFTER kvindex;
+ALTER TABLE skyscraper_kv ADD pass text NULL DEFAULT NULL AFTER kvindex;
+ALTER TABLE skyscraper ADD pidizdiv_int INT(11) NULL DEFAULT NULL AFTER kvartur_int;
+ALTER TABLE skyscraper ADD photo text NULL DEFAULT NULL AFTER kvartur_int;
+ALTER TABLE monitor_ip ADD device text NULL DEFAULT NULL AFTER lan;
+ALTER TABLE `skyscraper_device` CHANGE `groups_id` `build_id` int(11) NULL AFTER `types`;
+ALTER TABLE `skyscraper_device` CHANGE `monitor` `userid` int(11) NULL AFTER `status`;

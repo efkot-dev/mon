@@ -1,0 +1,18 @@
+CREATE TABLE battery_history (id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,deviceid INT(11),batteryid INT(11),mon_types TEXT,history TEXT,added DATETIME) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+ALTER TABLE `battery`
+CHANGE `amper` `amper` text(10) COLLATE 'utf8_unicode_ci' NULL AFTER `voltage`,
+CHANGE `types` `types` text(20) COLLATE 'utf8_unicode_ci' NULL AFTER `amper`,
+CHANGE `model` `model` text(100) COLLATE 'utf8_unicode_ci' NULL AFTER `types`,
+CHANGE `name` `name` text(100) COLLATE 'utf8_unicode_ci' NULL AFTER `model`,
+ADD `sn` text(100) COLLATE 'utf8_unicode_ci' NULL AFTER `name`;
+
+ALTER TABLE `battery_used`
+CHANGE `mon_types` `connectd` text COLLATE 'utf8_unicode_ci' NULL AFTER `id`;
+ALTER TABLE `battery_history`
+CHANGE `mon_types` `connectd` text COLLATE 'utf8_unicode_ci' NULL AFTER `batteryid`;
+
+ALTER TABLE `battery_history`
+ADD `timea` varchar(100) COLLATE 'utf8_unicode_ci' NULL,
+ADD `timeb` varchar(100) COLLATE 'utf8_unicode_ci' NULL AFTER `timea`,
+ADD `status` int(11) NULL AFTER `timeb`;

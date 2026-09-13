@@ -1,0 +1,2 @@
+ALTER TABLE `switch` ADD `enablepassword` varchar(50) COLLATE 'utf8_general_ci' NULL AFTER `typecheck`;
+Update switch set monitor = 'yes';

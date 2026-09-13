@@ -1,0 +1,13 @@
+CREATE TABLE battery_sessions (
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	deviceid INT NOT NULL,
+	connectd VARCHAR(50),
+	type ENUM('discharge','charge'),
+	voltage_start FLOAT,
+	voltage_end FLOAT,
+	time_start DATETIME,
+	time_end DATETIME,
+	duration INT,
+	status ENUM('in_progress','finished'),
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

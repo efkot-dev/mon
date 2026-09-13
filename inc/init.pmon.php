@@ -1,0 +1,87 @@
+<?php
+declare(strict_types=1);
+
+defined('PONMONITOR') || exit('Hacking attempt system!');
+defined('CONFIG') || exit('Hacking attempt config!');
+require_once ROOT_DIR . '/vendor/autoload.php';
+use Predis\Client;
+define('CACHE_TTL', 7200);
+define('CACHE_FILE_NAME', md5('config_Momotiuk'));
+define('CACHE_FILE_CONFIG', md5('config_Oleksiy'));
+define('CACHE_DIR', ROOT_DIR . '/export/cache/');
+$redis = new Client([
+    'scheme' => 'tcp',
+    'host' => defined('REDIS_IP') ? REDIS_IP : '127.0.0.1',
+    'port' => defined('REDIS_PORT') ? REDIS_PORT : 6379,
+]);
+final class DB_PMON {
+    private static ?PDO $pdo = null;
+    public static function connect(): PDO
+    {
+        if (self::$pdo === null) {
+            self::$pdo = new PDO('mysql:host=' . DBHOST .';dbname=' . DBNAME .';charset=utf8mb4',DBUSER,DBPASS,
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_PERSISTENT => true,
+                ]
+            );
+        }
+        return self::$pdo;
+    }
+    public static function generateUniqueSecret(
+        int $length = 32
+    ): string {
+        return bin2hex(random_bytes($length));
+    }
+}
+final class ConfigLoader {
+    private static array $memory = [];
+    public static function load( string $table,  string $cacheKey, PDO $pdo,Client $redis): array {
+        $allowedTables = ['pmonini', 'config'];
+        if (!in_array($table, $allowedTables, true)) {
+            throw new RuntimeException('Invalid config table');
+        }
+        $cacheKey = 'config:' . $cacheKey;
+        if (isset(self::$memory[$cacheKey])) {
+            return self::$memory[$cacheKey];
+        }
+        $cached = $redis->get($cacheKey);
+        if ($cached !== null) {
+            return self::$memory[$cacheKey] =  json_decode($cached, true) ?? [];
+        }
+        $stmt = $pdo->query("SELECT name, value FROM {$table}");
+        $config = [];
+        foreach ($stmt as $row) {
+            $config[$row['name']] = $row['value'];
+        }
+        $redis->setex($cacheKey,CACHE_TTL,json_encode($config));
+        return self::$memory[$cacheKey] = $config;
+    }
+    public static function clearCache(string $cacheKey, Client $redis): void {
+        $redis->del(['config:' . $cacheKey]);
+        unset(self::$memory['config:' . $cacheKey]);
+    }
+}
+try {
+    $pdo = DB_PMON::connect();
+    $confPMon = ConfigLoader::load('pmonini',CACHE_FILE_NAME,$pdo,$redis);
+    $config = ConfigLoader::load('config',CACHE_FILE_CONFIG,$pdo,$redis);
+    if (empty($confPMon['API_SECRET'])) {
+        $apiSecret = DB_PMON::generateUniqueSecret();
+        $stmt = $pdo->prepare("INSERT INTO pmonini (`name`, `value`) VALUES (:name, :value)");
+        $stmt->execute([':name' => 'API_SECRET',':value' => $apiSecret]);
+        ConfigLoader::clearCache(CACHE_FILE_NAME,$redis);
+        $confPMon['API_SECRET'] = $apiSecret;
+        error_log('[BOOTSTRAP] API_SECRET generated successfully');
+    }
+    $pmon_index = '3.5';
+    $pmon_license = $config['license'] ?? 'MomotiukOleksiyStable';
+
+} catch (Throwable $e) {
+    http_response_code(500);
+    error_log('[BOOTSTRAP ERROR] ' .  $e->getMessage());
+    exit('System error');
+}
+?>

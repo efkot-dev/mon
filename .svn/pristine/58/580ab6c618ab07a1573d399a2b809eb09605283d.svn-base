@@ -1,0 +1,362 @@
+<?php
+if (!defined('PONMONITOR')){
+	header('HTTP/1.1 403 Forbidden');
+	header('Location: ../');
+	die('Hacking attempt!');
+}	
+$do = $_REQUEST['do'] ?? null;
+$act = $_REQUEST['act'] ?? null;
+if (isset($do)) {
+    $do = totranslit($do);
+}
+if (isset($act)) {
+    $act = totranslit($act);
+}
+switch($do){
+	case 'exit': 
+		$auth->logout(); 	
+	break;	
+	case 'generator':
+		require MODULE_PMON.'generator.php';	
+	break;			
+	case 'topology':
+		require MODULE_PMON.'topology.php';	
+	break;		
+	case 'send':
+		require MODULE_PMON.'send.php';	
+	break;		
+	case 'queue':
+		require MODULE_PMON.'queue.php';	
+	break;		
+	case 'lightning':
+		require MODULE_PMON.'lightning.php';	
+	break;		
+	case 'stats_api':
+		require MODULE_PMON.'stats_api.php';	
+	break;		
+	case 'stats_api_view':
+		require MODULE_PMON.'stats_api_view.php';	
+	break;	
+	case 'historyvolt':
+		require MODULE_PMON.'historyvolt.php';	
+	break;		
+	case 'transport':
+		require MODULE_PMON.'transport.php';	
+	break;		
+	case 'temp':
+		require MODULE_PMON.'temp.php';	
+	break;	
+	case 'scheduler':
+		require MODULE_PMON.'scheduler.php';	
+	break;		
+	case 'groups':
+		require MODULE_PMON.'groups.php';	
+	break;		
+	case 'ponanalyz':
+		require MODULE_PMON.'ponanalyz.php';	
+	break;		
+	case 'onuevents':
+		require MODULE_PMON.'onuevents.php';	
+	break;	
+	case 'surveillance':
+		require MODULE_PMON.'surveillance.php';	
+	break;		
+	case 'page':
+		require MODULE_PMON.'page.php';	
+	break;		
+	case 'taskers':
+		require MODULE_PMON.'taskers.php';	
+	break;		
+	case 'competitor':
+		require MODULE_PMON.'competitor.php';	
+	break;		
+	case 'sfpsignal':
+		require MODULE_PMON.'sfpsignal.php';	
+	break;		
+	case 'onusupport':
+		require MODULE_PMON.'onusupport.php';	
+	break;		
+	case 'portmonitor':
+		require MODULE_PMON.'portmonitor.php';	
+	break;		
+	case 'core':
+		require MODULE_PMON.'core.php';	
+	break;		
+	case 'poncalc':
+		require MODULE_PMON.'poncalc.php';	
+	break;		
+	case 'savesetup':
+		require MODULE_PMON.'savesetup.php';	
+	break;	
+	case 'profile':
+		require MODULE_PMON.'profile.php';	
+	break;		
+	case 'bandwidth':
+		require MODULE_PMON.'bandwidth.php';	
+	break;		
+	case 'operator':
+		require MODULE_PMON.'operator.php';	
+	break;		
+	case 'nagios':
+		require MODULE_PMON.'nagios.php';	
+	break;		
+	case 'change':
+		require MODULE_PMON.'change.php';	
+	break;		
+	case 'fdbmacaddress':
+		require MODULE_PMON.'fdbmacaddress.php';	
+	break;		
+	case 'car':
+		require MODULE_PMON.'car.php';	
+	break;		
+	case 'calendar':
+		require MODULE_PMON.'calendar.php';	
+	break;		
+	case 'usr':
+		require MODULE_PMON.'usr.php';	
+	break;		
+	case 'vlan':
+		require MODULE_PMON.'vlan.php';	
+	break;		
+	case 'gps':
+		require MODULE_PMON.'gps.php';	
+	break;		
+	case 'test':
+		require MODULE_PMON.'test.php';	
+	break;	
+	case 'pmonlogin':
+		require MODULE_PMON.'pmonlogin.php';	
+	break;		
+	case 'pmon':
+		require MODULE_PMON.'pmonini.php';	
+	break;			
+	case 'apibilling':
+		require MODULE_PMON.'apibilling.php';	
+	break;		
+	case 'odometr':
+		require MODULE_PMON.'odometr.php';	
+	break;		
+	case 'mysqlbackup':
+		require MODULE_PMON.'mysqlbackup.php';	
+	break;	
+	case 'thumb':
+		require MODULE_PMON.'thumb.php';	
+	break;		
+	case 'oltsignal':
+		require MODULE_PMON.'oltsignal.php';	
+	break;	
+	case 'tmc':
+		require MODULE_PMON.'tmc.php';	
+	break;		
+	case 'zvit':
+		require MODULE_PMON.'zvit.php';	
+	break;		
+	case 'onuvendor':
+		require MODULE_PMON.'onuvendor.php';	
+	break;		
+	case 'vendor':
+		require MODULE_PMON.'vendor.php';	
+	break;	
+	case 'vision':
+		require MODULE_PMON.'vision.php';	
+	break;		
+	case 'service':
+		require MODULE_PMON.'service.php';	
+	break;		
+	case 'listbadsignal':
+		require MODULE_PMON.'listbadsignal.php';	
+	break;		
+	case 'notification':
+		require MODULE_PMON.'notification.php';	
+	break;		
+	case 'duplicated':
+		require MODULE_PMON.'duplicated.php';	
+	break;		
+	case 'telegram':
+		require MODULE_PMON.'telegram.php';	
+	break;		
+	case 'monitorip':
+		require MODULE_PMON.'monitorip.php';	
+	break;		
+	case 'alarm':
+		require MODULE_PMON.'alarm.php';	
+	break;		
+	case 'oblenergo':
+		require ENGINE_DIR.'functions/oblenergo.php';
+		require MODULE_PMON.'oblenergo.php';	
+	break;		
+	case 'onuerror':
+		require MODULE_PMON.'onuerror.php';	
+	break;		
+	case 'ponsignal':
+		require MODULE_PMON.'ponsignal.php';	
+	break;		
+	case 'onuoffline':
+		require MODULE_PMON.'onuoffline.php';	
+	break;	
+	case 'onulist':
+		require MODULE_PMON.'onulist.php';	
+	break;		
+	case 'house':
+		require MODULE_PMON.'house.php';	
+	break;		
+	case 'searchmac':
+		require MODULE_PMON.'searchmac.php';	
+	break;		
+	case 'pon':
+		require MODULE_PMON.'pon.php';	
+	break;		
+	case 'switch':
+		require MODULE_PMON.'switch.php';	
+	break;		
+	case 'reset':
+		require MODULE_PMON.'reset.php';	
+	break;		
+	case 'loadport':
+		require MODULE_PMON.'loadport.php';	
+	break;		
+	case 'changesignal':
+		require MODULE_PMON.'changesignal.php';	
+	break;		
+	case 'ipman':
+		require MODULE_PMON.'ipman.php';	
+	break;		
+	case 'stickers':
+		require MODULE_PMON.'stickers.php';	
+	break;		
+	case 'battery':
+		require MODULE_PMON.'battery.php';	
+	break;		
+	case 'update':
+		require MODULE_PMON.'update.php';	
+	break;	
+	case 'signal':
+		require MODULE_PMON.'signal.php';	
+	break;	
+	case 'getblacklist':
+		require MODULE_PMON.'getblacklist.php';	
+	break;	
+	case 'badsignal':
+		require MODULE_PMON.'badsignal.php';	
+	break;	
+	case 'ping3':
+		require MODULE_PMON.'ping3.php';	
+	break;		
+	case 'huaweionuerror':
+		require MODULE_PMON.'huaweionuerror.php';
+	break;		
+	case 'bdcomonuerror':
+		require MODULE_PMON.'bdcomonuerror.php';	
+	break;		
+	case 'unit':
+		require MODULE_PMON.'unit.php';	
+	break;		
+	case 'pmonapi':
+		require MODULE_PMON.'pmonapi.php';	
+	break;		
+	case 'regonu':
+		require MODULE_PMON.'regonu.php';	
+	break;		
+	case 'ponport':
+		require MODULE_PMON.'ponport.php';	
+	break;	
+	case 'board':
+		require MODULE_PMON.'board_fault.php';	
+	break;		
+	case 'log':
+		require MODULE_PMON.'log.php';	
+	break;	
+	case 'info':
+		require MODULE_PMON.'info.php';	
+	break;	
+	case 'users':
+		require MODULE_PMON.'users.php';	
+	break;		
+	case 'statusport':
+		require MODULE_PMON.'statusport.php';	
+	break;		
+	case 'porterror':
+		require MODULE_PMON.'porterror.php';	
+	break;		
+	case 'switchlog':
+		require MODULE_PMON.'switchlog.php';	
+	break;		
+	case 'location':
+		require MODULE_PMON.'location.php';	
+	break;	
+	case 'blacklist12':
+		require MODULE_PMON.'blacklist12.php';	
+	break;		
+	case 'blacklist11':
+		require MODULE_PMON.'blacklist11.php';	
+	break;		
+	case 'telnet':
+		require MODULE_PMON.'telnet.php';	
+	break;		
+	case 'ponscanner':
+		require MODULE_PMON.'ponscanner.php';	
+	break;		
+	case 'mapper':
+		require MODULE_PMON.'mapper.php';	
+	break;	
+	case 'search':
+		require MODULE_PMON.'search.php';	
+	break;	
+	case 'detail': 
+		if($act=='olt')
+			require MODULE_PMON.'olt.php';		
+		if($act=='switch')
+			require MODULE_PMON.'olt.php';	
+	break;		
+	case 'badont': 
+		require MODULE_PMON.'badont.php';	
+	break;		
+	case 'onu': 
+		require MODULE_PMON.'onu.php';	
+	break;		
+	case 'ont': 
+		require MODULE_PMON.'ont.php';	
+	break;		
+	case 'group': 
+		require MODULE_PMON.'group.php';	
+	break;	
+	case 'terminal': 
+		require MODULE_PMON.'terminal.php';	
+	break;		
+	case 'device': 
+		require MODULE_PMON.'device.php';	
+	break;		
+	case 'setup': 
+		require MODULE_PMON.'setup.php';	
+	break;	
+	case 'config': 
+		require MODULE_PMON.'config.php';	
+	break;		
+	case 'billing': 
+		require MODULE_PMON.'billing.php';	
+	break;	
+	case 'add':	
+		require MODULE_PMON.'add.php';	
+	break;		
+	case 'map':	
+		require MODULE_PMON.'map.php';	
+	break;		
+	case 'fiber':	
+		require MODULE_PMON.'fiber.php';	
+	break;		
+	case 'oid':	
+		require MODULE_PMON.'oid.php';	
+	break;		
+	case 'access':	
+		require MODULE_PMON.'access.php';	
+	break;		
+	case 'sklad':	
+		if($config['sklad']=='on'){
+			require ENGINE_DIR.'functions/sklad.php';
+			require MODULE_PMON.'sklad.php';
+		}			
+	break;	
+	default:
+		require MODULE_PMON.'main.php';	
+}
+?>
